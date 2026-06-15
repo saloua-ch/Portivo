@@ -1,0 +1,117 @@
+export const containers = [
+  {
+    id: "CNT-001",
+    number: "MSCU7654321",
+    status: "in_transit",
+    eta: "2026-06-14",
+    origin: "Shanghai",
+    destination: "Tunis",
+    carrier: "MSC",
+    needsAttention: true,
+    attentionReason: "Missing BL document",
+    groupages: [
+      { supplier: "Shenzhen Goods Co.", client: "CONSOL CLUB", reference: "REF-001", delivered: false },
+      { supplier: "Guangzhou Parts Ltd.", client: "TechImport TN", reference: "REF-002", delivered: false },
+    ],
+    timeline: [
+      { step: "Departure", date: "2026-05-20", done: true },
+      { step: "Transshipment - Port Said", date: "2026-06-01", done: true },
+      { step: "Arrival Tunis", date: "2026-06-14", done: false, current: true },
+      { step: "Customs clearance", date: null, done: false },
+      { step: "Delivery", date: null, done: false },
+    ],
+  },
+  {
+    id: "CNT-002",
+    number: "CMAU1234567",
+    status: "customs",
+    eta: "2026-06-12",
+    origin: "Genoa",
+    destination: "Tunis",
+    carrier: "CMA CGM",
+    needsAttention: false,
+    attentionReason: null,
+    groupages: [
+      { supplier: "Milano Textiles", client: "FashionTN", reference: "REF-003", delivered: false },
+    ],
+    timeline: [
+      { step: "Departure", date: "2026-06-01", done: true },
+      { step: "Arrival Tunis", date: "2026-06-12", done: true },
+      { step: "Customs clearance", date: "2026-06-12", done: false, current: true },
+      { step: "Delivery", date: null, done: false },
+    ],
+  },
+  {
+    id: "CNT-003",
+    number: "HLXU9876543",
+    status: "delivered",
+    eta: "2026-05-30",
+    origin: "Hamburg",
+    destination: "Tunis",
+    carrier: "Hapag-Lloyd",
+    needsAttention: false,
+    attentionReason: null,
+    groupages: [
+      { supplier: "Berlin Machinery GmbH", client: "IndustrialTN", reference: "REF-004", delivered: true },
+      { supplier: "Munich Auto Parts", client: "AutoZone TN", reference: "REF-005", delivered: true },
+    ],
+    timeline: [
+      { step: "Departure", date: "2026-05-10", done: true },
+      { step: "Arrival Tunis", date: "2026-05-28", done: true },
+      { step: "Customs clearance", date: "2026-05-29", done: true },
+      { step: "Delivery", date: "2026-05-30", done: true },
+    ],
+  },
+  {
+    id: "CNT-004",
+    number: "EGLV3210987",
+    status: "arriving_soon",
+    eta: "2026-06-16",
+    origin: "Valencia",
+    destination: "Tunis",
+    carrier: "Evergreen",
+    needsAttention: true,
+    attentionReason: "Customs block — certificate missing",
+    groupages: [
+      { supplier: "Valencia Foods SA", client: "GroceryTN", reference: "REF-006", delivered: false },
+      { supplier: "Sevilla Olive Co.", client: "GroceryTN", reference: "REF-007", delivered: false },
+    ],
+    timeline: [
+      { step: "Departure", date: "2026-06-05", done: true },
+      { step: "Transshipment - Algeciras", date: "2026-06-09", done: true },
+      { step: "Arrival Tunis", date: "2026-06-16", done: false, current: true },
+      { step: "Customs clearance", date: null, done: false },
+      { step: "Delivery", date: null, done: false },
+    ],
+  },
+];
+
+export const historicalShipments = [
+  { client: "CONSOL CLUB", supplier: "Shenzhen Goods Co.", container: "MSCU7654321", reference: "REF-001", date: "2026-06-14", year: 2026 },
+  { client: "CONSOL CLUB", supplier: "Pearl River Trading", container: "CMAU0011223", reference: "REF-010", date: "2026-03-05", year: 2026 },
+  { client: "CONSOL CLUB", supplier: "HK Supplies Ltd.", container: "HLXU5544332", reference: "REF-022", date: "2025-11-18", year: 2025 },
+  { client: "FashionTN", supplier: "Milano Textiles", container: "CMAU1234567", reference: "REF-003", date: "2026-06-12", year: 2026 },
+  { client: "GroceryTN", supplier: "Valencia Foods SA", container: "EGLV3210987", reference: "REF-006", date: "2026-06-16", year: 2026 },
+];
+
+export const analyticsData = {
+  totalContainers: 148,
+  activeContainers: 12,
+  deliveredThisMonth: 9,
+  avgTransitDays: 18,
+  monthlyVolume: [
+    { month: "Jan", count: 10 },
+    { month: "Feb", count: 14 },
+    { month: "Mar", count: 9 },
+    { month: "Apr", count: 17 },
+    { month: "May", count: 21 },
+    { month: "Jun", count: 12 },
+  ],
+  topClients: [
+    { name: "GroceryTN", shipments: 34 },
+    { name: "CONSOL CLUB", shipments: 28 },
+    { name: "FashionTN", shipments: 19 },
+    { name: "AutoZone TN", shipments: 15 },
+    { name: "IndustrialTN", shipments: 11 },
+  ],
+};
