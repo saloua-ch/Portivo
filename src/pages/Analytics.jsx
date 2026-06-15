@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 /**
  * Portivo — Analytics page
  *
- * Matches Home.jsx design system exactly:
+ * Matches Home.jsx   design system exactly:
  * - Same dark ink hero header with animated map background
  * - Same topbar brand + nav + sync indicator
  * - Paper body below
