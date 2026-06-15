@@ -8,13 +8,16 @@ import Search from "./pages/Search";
 import Import from "./pages/Import";
 import Analytics from "./pages/Analytics";
 
+/**
+ * AppShell — only renders the TopNav.
+ * No padding, no background, no wrapper styles.
+ * Each page owns its full layout: hero, body, spacing — everything.
+ */
 function AppShell({ children }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#ECE7DA" }}>
+    <div style={{ minHeight: "100vh" }}>
       <TopNav />
-      <main style={{ padding: "32px clamp(20px, 4vw, 48px)" }}>
-        {children}
-      </main>
+      {children}
     </div>
   );
 }
@@ -23,16 +26,16 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Full-screen home page — no top nav, no padding */}
+        {/* Home is full-screen — no nav, no shell */}
         <Route path="/" element={<Home />} />
 
-        {/* Everything else lives inside the top-nav shell */}
-        <Route path="/arrivals" element={<AppShell><Arrivals /></AppShell>} />
-        <Route path="/containers" element={<AppShell><Containers /></AppShell>} />
-        <Route path="/containers/:id" element={<AppShell><ContainerDetail /></AppShell>} />
-        <Route path="/search" element={<AppShell><Search /></AppShell>} />
-        <Route path="/import" element={<AppShell><Import /></AppShell>} />
-        <Route path="/analytics" element={<AppShell><Analytics /></AppShell>} />
+        {/* All inner pages get the nav bar only, no padding wrapper */}
+        <Route path="/arrivals"        element={<AppShell><Arrivals /></AppShell>} />
+        <Route path="/containers"      element={<AppShell><Containers /></AppShell>} />
+        <Route path="/containers/:id"  element={<AppShell><ContainerDetail /></AppShell>} />
+        <Route path="/search"          element={<AppShell><Search /></AppShell>} />
+        <Route path="/import"          element={<AppShell><Import /></AppShell>} />
+        <Route path="/analytics"       element={<AppShell><Analytics /></AppShell>} />
       </Routes>
     </BrowserRouter>
   );

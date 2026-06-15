@@ -8,7 +8,7 @@ import {
   Trash2,
   Clock,
 } from "lucide-react";
-import TopNav from "../components/TopNav";
+// TopNav is rendered by AppShell in App.jsx — not needed here
 
 // ─── Styles ────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ const S = {
   // Hero
   hero: {
     background: "#0f1f2e",
-    padding: 0,
+    padding: "36px 40px 32px",
     position: "relative",
     overflow: "hidden",
   },
@@ -645,10 +645,8 @@ export default function Import() {
 
   return (
     <div>
-      {/* ── Hero (nav lives inside here) ── */}
+      {/* ── Hero — continues the dark bar from TopNav above ── */}
       <div style={S.hero}>
-        <TopNav heroBackground="#0f1f2e" />
-        <div style={{ padding: "28px 40px 32px", position: "relative" }}>
         <HeroDeco />
         <p style={S.heroEyebrow}>Portivo · Data import</p>
         <h1 style={S.heroTitle}>Import</h1>
@@ -669,7 +667,6 @@ export default function Import() {
             Conflicts
           </div>
         </div>
-        </div> {/* end inner padding div */}
       </div>
 
       {/* ── Stat bar + history (always visible) ── */}

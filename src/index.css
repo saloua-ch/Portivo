@@ -1,4 +1,4 @@
-  :root {
+:root {
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -24,10 +24,10 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+@media (max-width: 1024px) {
+  :root { font-size: 16px; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -44,14 +44,17 @@
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
-
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
 }
 
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
   margin: 0;
+  /* No global background — each page/section sets its own */
 }
 
 #root {
@@ -61,46 +64,31 @@ body {
   flex-direction: column;
 }
 
-h1,
-h2 {
+/* ── Typography (only where not overridden by page components) ── */
+h1, h2 {
   font-family: var(--heading);
   font-weight: 500;
   color: var(--text-h);
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
+h1 { font-size: 56px; letter-spacing: -1.68px; margin: 32px 0; }
+h2 { font-size: 24px; line-height: 118%; letter-spacing: -0.24px; margin: 0 0 8px; }
+p  { margin: 0; }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+@media (max-width: 1024px) {
+  h1 { font-size: 36px; margin: 20px 0; }
+  h2 { font-size: 20px; }
 }
 
 code {
+  font-family: var(--mono);
   font-size: 15px;
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+  border-radius: 4px;
+  color: var(--text-h);
 }
+
+button { font-family: inherit; }
+a { color: inherit; }
