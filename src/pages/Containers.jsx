@@ -1,55 +1,196 @@
 import { useNavigate } from "react-router-dom";
 import { containers } from "../data/mockData";
 import {
-  AlertCircle, AlertTriangle, Ship, ClipboardList, Anchor,
-  CheckCircle, Search as SearchIcon,
+  AlertCircle, AlertTriangle, Ship, ClipboardList,
+  Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
-/* ─── Status config ─────────────────────────────────────────────────────── */
-const statusConfig = {
-  in_transit: {
-    label: "In transit",
-    color: "var(--teal)", bg: "var(--teal-soft)",
-    Icon: Ship,
-  },
-  customs: {
-    label: "In customs",
-    color: "var(--amber)", bg: "var(--amber-soft)",
-    Icon: ClipboardList,
-  },
-  arriving_soon: {
-    label: "Arriving soon",
-    color: "var(--teal)", bg: "var(--teal-soft)",
-    Icon: Anchor,
-  },
-  delivered: {
-    label: "Delivered",
-    color: "var(--teal)", bg: "var(--teal-soft)",
-    Icon: CheckCircle,
-  },
+/* ── Google Fonts ── */
+if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
+  const l = document.createElement("link");
+  l.id = "pvc-gf"; l.rel = "stylesheet";
+  l.href = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;700&display=swap";
+  document.head.appendChild(l);
+}
+
+/* ── Status config ── */
+const STATUS = {
+  in_transit:    { label: "In transit",    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: Ship },
+  customs:       { label: "In customs",    color: "#8a620d", bg: "#F0DDB3", pip: "#C9912B", Icon: ClipboardList },
+  arriving_soon: { label: "Arriving soon", color: "#0e4980", bg: "#B5D4F4", pip: "#185FA5", Icon: Anchor },
+  delivered:     { label: "Delivered",     color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: CheckCircle },
 };
 
 const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "attention", label: "Needs attention" },
-  { key: "in_transit", label: "In transit" },
-  { key: "customs", label: "In customs" },
+  { key: "all",           label: "All" },
+  { key: "attention",     label: "Needs attention", flag: true },
+  { key: "in_transit",    label: "In transit" },
+  { key: "customs",       label: "In customs" },
   { key: "arriving_soon", label: "Arriving soon" },
-  { key: "delivered", label: "Delivered" },
+  { key: "delivered",     label: "Delivered" },
 ];
 
-/* ─── Main component ────────────────────────────────────────────────────── */
+/* ── Helpers ── */
+function diffDays(str) {
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  return Math.round((new Date(str) - t) / 86400000);
+}
+function fmtShort(str) {
+  return new Date(str).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+function etaLabel(str) {
+  const d = diffDays(str);
+  if (d < 0) return "Overdue";
+  if (d === 0) return "Today";
+  if (d === 1) return "Tomorrow";
+  return fmtShort(str);
+}
+
+/* ── Isometric container yard SVG ── */
+function ContainerYard() {
+  return (
+    <svg viewBox="0 0 420 260" width="420" height="260" aria-hidden="true" style={{ display: "block", opacity: 0.9 }}>
+
+      {/* Ground plane */}
+      <polygon points="0,200 210,130 420,200 210,260" fill="#082030" />
+
+      {/* === ROW A: left stack — 2 containers === */}
+      {/* A1 bottom — teal (in transit) */}
+      <g transform="translate(30,90)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#1a5c4a" />
+        <polygon points="0,20 0,65 60,80 60,50" fill="#0d3d30" />
+        <polygon points="120,20 120,65 60,80 60,50" fill="#164f3e" />
+        <line x1="0" y1="35" x2="60" y2="63" stroke="#091f18" strokeWidth="0.8" />
+        <line x1="0" y1="50" x2="60" y2="72" stroke="#091f18" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="63" stroke="#102d24" strokeWidth="0.8" />
+        <line x1="120" y1="50" x2="60" y2="72" stroke="#102d24" strokeWidth="0.8" />
+        <line x1="90" y1="30" x2="90" y2="72" stroke="#102d24" strokeWidth="1.2" />
+        <line x1="90" y1="51" x2="120" y2="45" stroke="#102d24" strokeWidth="0.8" />
+      </g>
+      {/* A2 top — amber (customs) */}
+      <g transform="translate(30,55)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#7a5810" />
+        <polygon points="0,20 0,55 60,70 60,50" fill="#4d3808" />
+        <polygon points="120,20 120,55 60,70 60,50" fill="#63470a" />
+        <line x1="0" y1="35" x2="60" y2="55" stroke="#2d2005" strokeWidth="0.8" />
+        <line x1="0" y1="48" x2="60" y2="65" stroke="#2d2005" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="55" stroke="#3d2a07" strokeWidth="0.8" />
+        <line x1="90" y1="28" x2="90" y2="66" stroke="#3d2a07" strokeWidth="1.2" />
+      </g>
+
+      {/* === ROW B: center — 4 stacked === */}
+      {/* B1 bottom — red (attention) */}
+      <g transform="translate(150,110)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#7a2318" />
+        <polygon points="0,20 0,65 60,80 60,50" fill="#4d160f" />
+        <polygon points="120,20 120,65 60,80 60,50" fill="#631d13" />
+        <line x1="0" y1="35" x2="60" y2="63" stroke="#2d0c09" strokeWidth="0.8" />
+        <line x1="0" y1="50" x2="60" y2="72" stroke="#2d0c09" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="63" stroke="#3d100c" strokeWidth="0.8" />
+        <line x1="120" y1="50" x2="60" y2="72" stroke="#3d100c" strokeWidth="0.8" />
+        <line x1="90" y1="30" x2="90" y2="72" stroke="#3d100c" strokeWidth="1.2" />
+      </g>
+      {/* B2 */}
+      <g transform="translate(150,75)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#1a5c4a" />
+        <polygon points="0,20 0,58 60,73 60,50" fill="#0d3d30" />
+        <polygon points="120,20 120,58 60,73 60,50" fill="#164f3e" />
+        <line x1="0" y1="35" x2="60" y2="57" stroke="#091f18" strokeWidth="0.8" />
+        <line x1="0" y1="50" x2="60" y2="68" stroke="#091f18" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="57" stroke="#102d24" strokeWidth="0.8" />
+        <line x1="90" y1="28" x2="90" y2="68" stroke="#102d24" strokeWidth="1.2" />
+      </g>
+      {/* B3 */}
+      <g transform="translate(150,40)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#7a5810" />
+        <polygon points="0,20 0,58 60,73 60,50" fill="#4d3808" />
+        <polygon points="120,20 120,58 60,73 60,50" fill="#63470a" />
+        <line x1="0" y1="35" x2="60" y2="57" stroke="#2d2005" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="57" stroke="#3d2a07" strokeWidth="0.8" />
+        <line x1="90" y1="28" x2="90" y2="68" stroke="#3d2a07" strokeWidth="1.2" />
+      </g>
+      {/* B4 top */}
+      <g transform="translate(150,8)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#184f41" />
+        <polygon points="0,20 0,55 60,68 60,50" fill="#0b3229" />
+        <polygon points="120,20 120,55 60,68 60,50" fill="#134437" />
+        <line x1="90" y1="28" x2="90" y2="65" stroke="#0a2820" strokeWidth="1.2" />
+      </g>
+
+      {/* === ROW C: right — 2 containers === */}
+      {/* C1 bottom — blue (arriving) */}
+      <g transform="translate(270,130)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#1e3a6e" />
+        <polygon points="0,20 0,65 60,80 60,50" fill="#122547" />
+        <polygon points="120,20 120,65 60,80 60,50" fill="#192f5c" />
+        <line x1="0" y1="35" x2="60" y2="63" stroke="#0b1830" strokeWidth="0.8" />
+        <line x1="0" y1="50" x2="60" y2="72" stroke="#0b1830" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="63" stroke="#101f3d" strokeWidth="0.8" />
+        <line x1="90" y1="30" x2="90" y2="72" stroke="#101f3d" strokeWidth="1.2" />
+      </g>
+      {/* C2 top — teal */}
+      <g transform="translate(270,95)">
+        <polygon points="0,20 60,-10 120,20 60,50" fill="#1a5c4a" />
+        <polygon points="0,20 0,58 60,73 60,50" fill="#0d3d30" />
+        <polygon points="120,20 120,58 60,73 60,50" fill="#164f3e" />
+        <line x1="0" y1="35" x2="60" y2="57" stroke="#091f18" strokeWidth="0.8" />
+        <line x1="120" y1="35" x2="60" y2="57" stroke="#102d24" strokeWidth="0.8" />
+        <line x1="90" y1="28" x2="90" y2="68" stroke="#102d24" strokeWidth="1.2" />
+      </g>
+
+      {/* === Crane structure === */}
+      <g opacity="0.5">
+        <line x1="385" y1="50" x2="385" y2="230" stroke="#18435A" strokeWidth="3" />
+        <line x1="410" y1="70" x2="410" y2="230" stroke="#18435A" strokeWidth="3" />
+        <line x1="340" y1="50" x2="420" y2="50" stroke="#18435A" strokeWidth="4" />
+        <line x1="340" y1="58" x2="420" y2="58" stroke="#18435A" strokeWidth="1.5" />
+        <line x1="360" y1="54" x2="348" y2="120" stroke="#18435A" strokeWidth="1" strokeDasharray="3 4" />
+        <line x1="380" y1="54" x2="368" y2="120" stroke="#18435A" strokeWidth="1" strokeDasharray="3 4" />
+        <rect x="340" y="120" width="36" height="6" fill="#18435A" rx="1" />
+        <line x1="385" y1="50" x2="410" y2="100" stroke="#18435A" strokeWidth="1.5" />
+        <line x1="410" y1="50" x2="385" y2="100" stroke="#18435A" strokeWidth="1.5" />
+        <line x1="397" y1="100" x2="397" y2="230" stroke="#18435A" strokeWidth="2" />
+      </g>
+
+      {/* Foreground partial container */}
+      <g transform="translate(60,168)">
+        <polygon points="0,16 90,-14 150,8 60,38" fill="#7a2318" />
+        <polygon points="0,16 0,46 60,60 60,38" fill="#4d160f" />
+        <polygon points="150,8 150,38 60,60 60,38" fill="#631d13" />
+        <line x1="0" y1="30" x2="60" y2="52" stroke="#2d0c09" strokeWidth="0.8" />
+        <line x1="150" y1="22" x2="60" y2="52" stroke="#3d100c" strokeWidth="0.8" />
+        <line x1="112" y1="21" x2="112" y2="51" stroke="#3d100c" strokeWidth="1.2" />
+      </g>
+
+      {/* Legend */}
+      <g fontFamily="IBM Plex Mono" fontSize="10" letterSpacing="1.5" fill="#6F8B9C">
+        <circle cx="16" cy="240" r="4" fill="#2F7E6C" />
+        <text x="26" y="244">IN TRANSIT</text>
+        <circle cx="110" cy="240" r="4" fill="#C9912B" />
+        <text x="120" y="244">CUSTOMS</text>
+        <circle cx="194" cy="240" r="4" fill="#7a2318" />
+        <text x="204" y="244">ATTENTION</text>
+        <circle cx="293" cy="240" r="4" fill="#1e3a6e" />
+        <text x="303" y="244">ARRIVING</text>
+      </g>
+    </svg>
+  );
+}
+
+/* ── Main component ── */
 export default function Containers() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState("all");
-  const [query, setQuery] = useState("");
-  const [syncTime, setSyncTime] = useState("");
+  const [query, setQuery]               = useState("");
+  const [sortAsc, setSortAsc]           = useState(true);
+  const [syncTime, setSyncTime]         = useState("");
 
   useEffect(() => {
     setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
   }, []);
 
+  /* counts */
   const counts = useMemo(() => {
     const c = { all: containers.length, attention: 0, in_transit: 0, customs: 0, arriving_soon: 0, delivered: 0 };
     containers.forEach(item => {
@@ -59,333 +200,243 @@ export default function Containers() {
     return c;
   }, []);
 
+  /* filtered list */
   const filtered = useMemo(() => {
-    let list = containers;
-
+    let list = [...containers];
     if (activeFilter === "attention") list = list.filter(c => c.needsAttention);
-    else if (activeFilter !== "all") list = list.filter(c => c.status === activeFilter);
-
+    else if (activeFilter !== "all")  list = list.filter(c => c.status === activeFilter);
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter(c =>
-        c.number.toLowerCase().includes(q) ||
-        c.carrier.toLowerCase().includes(q) ||
-        c.origin.toLowerCase().includes(q) ||
-        c.destination.toLowerCase().includes(q)
+        [c.number, c.carrier, c.origin, c.destination].some(v => v.toLowerCase().includes(q))
       );
     }
-
+    list.sort((a, b) => sortAsc
+      ? new Date(a.eta) - new Date(b.eta)
+      : new Date(b.eta) - new Date(a.eta)
+    );
     return list;
-  }, [activeFilter, query]);
+  }, [activeFilter, query, sortAsc]);
+
+  const ledgerCells = [
+    { n: containers.length, label: "On file",    accent: "#2F7E6C" },
+    { n: counts.in_transit, label: "In transit", accent: "#2F7E6C" },
+    { n: counts.customs,    label: "Customs",    accent: "#C9912B" },
+    { n: counts.attention,  label: "Attention",  accent: "#D6492F" },
+    { n: counts.arriving_soon, label: "Arriving", accent: "#185FA5" },
+  ];
 
   return (
-    <div className="pv-containers">
+    <div style={ROOT}>
       <style>{CSS}</style>
 
-      {/* ── Header ── */}
-      <div className="pv-header">
-        <div>
-          <p className="pv-eyebrow">Port operations</p>
-          <h1 className="pv-h1">Containers</h1>
-          <p className="pv-subtitle">
-            {containers.length} container{containers.length !== 1 ? "s" : ""} on file
-            {counts.attention > 0 && (
-              <> &middot; <span className="pv-subtitle-flag">{counts.attention} need{counts.attention === 1 ? "s" : ""} attention</span></>
-            )}
-          </p>
-        </div>
-        <div className="pv-sync">
-          <p className="pv-sync-label">Last synced</p>
-          <p className="pv-sync-time">{syncTime}</p>
+      {/* ── Hero ── */}
+      <div style={HERO}>
+        <div style={HERO_INNER}>
+          <div style={HERO_TEXT}>
+            <p style={EYEBROW}>Tunis–Goulette terminal · Fleet manifest</p>
+            <h1 style={H1}>Containers</h1>
+            <p style={HERO_SUB}>Every unit in the fleet — in transit, clearing customs, or delivered.</p>
+          </div>
+          <div style={HERO_MAP}>
+            <ContainerYard />
+          </div>
         </div>
       </div>
 
-      {/* ── Search ── */}
-      <div className="pv-search">
-        <SearchIcon size={15} aria-hidden="true" />
-        <input
-          type="text"
-          placeholder="Search by container number, carrier, or route&hellip;"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          aria-label="Search containers"
-        />
+      {/* ── Ledger strip ── */}
+      <div style={LEDGER}>
+        {ledgerCells.map(({ n, label, accent }) => (
+          <div key={label} style={{ ...LEDGER_CELL, borderLeftColor: accent }}>
+            <div style={{ ...LEDGER_NUM, color: accent }}>{String(n).padStart(2, "0")}</div>
+            <div style={LEDGER_LABEL}>{label}</div>
+          </div>
+        ))}
       </div>
 
-      {/* ── Filters ── */}
-      <div className="pv-filters" role="tablist">
-        {FILTERS.map(({ key, label }) => {
-          const isActive = activeFilter === key;
-          const count = counts[key];
-          return (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={isActive}
-              className={`pv-filter ${isActive ? "is-active" : ""} ${key === "attention" ? "is-flag" : ""}`}
-              onClick={() => setActiveFilter(key)}
-            >
-              {label}
-              <span className="pv-filter-count">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ── Body ── */}
+      <div style={BODY}>
 
-      {/* ── Manifest grid ── */}
-      {filtered.length === 0 ? (
-        <div className="pv-empty">
-          <Ship size={28} aria-hidden="true" />
-          <p>No containers match this filter.</p>
+        {/* Toolbar */}
+        <div style={TOOLBAR}>
+          <div style={SRCH}>
+            <SearchIcon size={14} color="#6E7F87" aria-hidden="true" />
+            <input
+              style={SRCH_INPUT}
+              type="text"
+              placeholder="Container number, carrier, route…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              aria-label="Search containers"
+            />
+          </div>
+          <div style={TOTAL_LABEL}>
+            {filtered.length} container{filtered.length !== 1 ? "s" : ""}
+          </div>
+          <button style={SORT_BTN} onClick={() => setSortAsc(v => !v)}>
+            <ArrowUpDown size={13} aria-hidden="true" />
+            ETA {sortAsc ? "↑" : "↓"}
+          </button>
         </div>
-      ) : (
-        <div className="pv-grid">
-          {filtered.map(container => {
-            const cfg = statusConfig[container.status] || statusConfig.in_transit;
-            const Icon = cfg.Icon;
-            const accentColor = container.needsAttention ? "var(--coral)" : cfg.color;
 
+        {/* Filters */}
+        <div style={FILT_ROW} role="tablist">
+          {FILTERS.map(({ key, label, flag }) => {
+            const on = activeFilter === key;
             return (
-              <div
-                key={container.id}
-                className="pv-manifest-card"
-                onClick={() => navigate(`/containers/${container.id}`)}
-                style={{ "--card-accent": accentColor }}
+              <button
+                key={key}
+                role="tab"
+                aria-selected={on}
+                className={`pvc-filter${flag ? " flag" : ""}${on ? " on" : ""}`}
+                onClick={() => setActiveFilter(key)}
               >
-                {/* Stamp header */}
-                <div className="pv-stamp-row">
-                  <div className="pv-stamp">
-                    <span className="pv-stamp-icon"><Icon size={14} /></span>
-                    <span className="pv-stamp-number">{container.number}</span>
-                  </div>
-                  {container.needsAttention && (
-                    <AlertCircle size={15} className="pv-icon-coral" aria-hidden="true" />
-                  )}
-                </div>
-
-                {/* Route */}
-                <p className="pv-route">
-                  <span className="pv-route-port">{container.origin}</span>
-                  <span className="pv-route-arrow">&rarr;</span>
-                  <span className="pv-route-port">{container.destination}</span>
-                </p>
-                <p className="pv-carrier">{container.carrier}</p>
-
-                {container.needsAttention && (
-                  <div className="pv-attention">
-                    <AlertTriangle size={12} aria-hidden="true" />
-                    {container.attentionReason}
-                  </div>
-                )}
-
-                {/* Footer row */}
-                <div className="pv-card-footer">
-                  <span className="pv-tag" style={{ "--tag-color": cfg.color, "--tag-bg": cfg.bg }}>
-                    {cfg.label}
-                  </span>
-                  <span className="pv-groupages">
-                    {container.groupages.length} groupage{container.groupages.length > 1 ? "s" : ""}
-                  </span>
-                </div>
-              </div>
+                {label}
+                <span className={`pvc-badge${flag ? " flag" : ""}`}>{counts[key] ?? 0}</span>
+              </button>
             );
           })}
         </div>
-      )}
 
-      {/* Footer */}
-      {filtered.length > 0 && (
-        <p className="pv-footer">
-          {filtered.length} container{filtered.length !== 1 ? "s" : ""} shown
-        </p>
-      )}
+        {/* Grid */}
+        {filtered.length === 0 ? (
+          <div style={EMPTY}>
+            <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} aria-hidden="true" />
+            <p>No containers match this filter.</p>
+          </div>
+        ) : (
+          <div style={GRID}>
+            {filtered.map(c => {
+              const cfg = STATUS[c.status] || STATUS.in_transit;
+              const ca  = c.needsAttention ? "#D6492F" : cfg.color;
+              const ov  = diffDays(c.eta) < 0;
+              return (
+                <div
+                  key={c.id}
+                  className="pvc-card"
+                  onClick={() => navigate(`/containers/${c.id}`)}
+                  style={{ borderLeftColor: ca }}
+                >
+                  {/* Stamp header */}
+                  <div style={CARD_HEAD}>
+                    <div style={{ ...STAMP, borderColor: ca, color: ca }}>
+                      <span style={STAMP_NUM}>{c.number}</span>
+                    </div>
+                    {c.needsAttention && (
+                      <AlertCircle size={14} color="#D6492F" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                    )}
+                  </div>
+
+                  {/* Body */}
+                  <div style={CARD_BODY}>
+                    <div style={ROUTE}>
+                      <span>{c.origin}</span>
+                      <span style={RARR}>→</span>
+                      <span>{c.destination}</span>
+                    </div>
+                    <p style={CARRIER}>{c.carrier}</p>
+                    {c.needsAttention && (
+                      <div style={ALERT_ROW}>
+                        <AlertTriangle size={12} aria-hidden="true" />
+                        {c.attentionReason}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div style={CARD_FOOT}>
+                    <span style={{ ...TAG, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                    <div style={{ ...ETA_ROW, color: ov ? "#D6492F" : "#6E7F87" }}>
+                      <span style={{ ...PIP, background: ov ? "#D6492F" : cfg.pip }} />
+                      {etaLabel(c.eta)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {filtered.length > 0 && (
+          <p style={FOOTER}>
+            {filtered.length} container{filtered.length !== 1 ? "s" : ""} shown
+            &nbsp;·&nbsp; eta {sortAsc ? "ascending" : "descending"}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
+/* ── Inline style objects ── */
+const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
+const HERO = { background: "#0B2A3D", position: "relative", overflow: "hidden", padding: "0 48px" };
+const HERO_INNER = { display: "flex", alignItems: "stretch", minHeight: 280, gap: 0 };
+const HERO_TEXT = { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "44px 0", zIndex: 2 };
+const EYEBROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#6F8B9C", margin: "0 0 14px" };
+const H1 = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2.6rem, 5vw, 4rem)", letterSpacing: "-0.02em", color: "#DCE6EA", lineHeight: 0.95, margin: "0 0 14px" };
+const HERO_SUB = { fontSize: "0.83rem", color: "#6F8B9C", maxWidth: "30ch", lineHeight: 1.6, margin: 0 };
+const HERO_MAP = { width: "clamp(260px,35vw,420px)", flexShrink: 0, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+const LEDGER = { display: "flex", flexWrap: "wrap", borderBottom: "1px solid rgba(11,42,61,0.18)" };
+const LEDGER_CELL = { flex: "1 1 120px", padding: "18px 28px", borderRight: "1px solid rgba(11,42,61,0.12)", borderLeft: "3px solid", background: "#E2DCCB" };
+const LEDGER_NUM = { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: "clamp(1.4rem,2.8vw,2.1rem)", lineHeight: 1 };
+const LEDGER_LABEL = { marginTop: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87" };
+const BODY = { padding: "36px clamp(24px,5vw,48px) 64px" };
+const TOOLBAR = { display: "flex", alignItems: "center", border: "1px solid rgba(11,42,61,0.18)", background: "#E2DCCB" };
+const SRCH = { display: "flex", alignItems: "center", gap: 10, flex: 1, padding: "12px 16px", borderRight: "1px solid rgba(11,42,61,0.14)", color: "#6E7F87" };
+const SRCH_INPUT = { flex: 1, border: "none", background: "none", outline: "none", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#1C2B33" };
+const TOTAL_LABEL = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", padding: "12px 20px", borderRight: "1px solid rgba(11,42,61,0.14)", whiteSpace: "nowrap" };
+const SORT_BTN = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.06em", background: "none", border: "none", cursor: "pointer", padding: "12px 16px", color: "#6E7F87", display: "flex", alignItems: "center", gap: 5 };
+const FILT_ROW = { display: "flex", flexWrap: "wrap", border: "1px solid rgba(11,42,61,0.18)", borderTop: "none", background: "#ECE7DA", marginBottom: 28 };
+const GRID = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 1, background: "rgba(11,42,61,0.16)", border: "1px solid rgba(11,42,61,0.18)" };
+const CARD_HEAD = { padding: "13px 15px 10px", borderBottom: "1px solid rgba(11,42,61,0.09)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 };
+const STAMP = { display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid", padding: "4px 8px" };
+const STAMP_NUM = { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.04em" };
+const CARD_BODY = { padding: "11px 15px" };
+const ROUTE = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "0.95rem", color: "#0B2A3D", display: "flex", alignItems: "baseline", gap: 7, marginBottom: 3 };
+const RARR = { color: "#6E7F87", fontWeight: 400, fontSize: "0.82rem" };
+const CARRIER = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", margin: 0 };
+const ALERT_ROW = { display: "flex", alignItems: "center", gap: 4, fontSize: "0.72rem", color: "#D6492F", borderTop: "1px solid rgba(214,73,47,0.14)", padding: "7px 0 0", marginTop: 7 };
+const CARD_FOOT = { marginTop: "auto", padding: "9px 15px", borderTop: "1px solid rgba(11,42,61,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" };
+const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600 };
+const ETA_ROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 4 };
+const PIP = { width: 5, height: 5, borderRadius: "50%", flexShrink: 0, display: "inline-block" };
+const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center" };
+const FOOTER = { textAlign: "center", marginTop: 18, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.66rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87" };
+
+/* ── CSS (only for filter/card hover — can't do with inline styles) ── */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
-
-.pv-containers{
-  --ink: #0B2A3D;
-  --paper: #ECE7DA;
-  --paper-2: #E2DCCB;
-  --text-on-paper: #1C2B33;
-  --text-muted: #6E7F87;
-  --coral: #D6492F;
-  --coral-soft: #F8DDD5;
-  --amber: #C9912B;
-  --amber-soft: #F0DDB3;
-  --teal: #2F7E6C;
-  --teal-soft: #C7E0D8;
-  --display: 'Fraunces', serif;
-  --body: 'IBM Plex Sans', sans-serif;
-  --mono: 'IBM Plex Mono', monospace;
-
-  max-width: 1180px;
-  margin: 0 auto;
-  padding-bottom: 48px;
-  font-family: var(--body);
-  color: var(--text-on-paper);
-}
-
-.pv-containers *{ box-sizing: border-box; }
-
-/* ── Header ── */
-.pv-header{
-  display:flex; justify-content:space-between; align-items:flex-start;
-  margin-bottom: 28px; padding-bottom: 20px;
-  border-bottom: 1px solid rgba(11,42,61,0.14);
-}
-.pv-eyebrow{
-  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.22em;
-  text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px;
-}
-.pv-h1{
-  font-family: var(--display); font-weight: 600; font-size: 2.4rem;
-  letter-spacing: -0.01em; color: var(--ink); margin: 0 0 6px; line-height: 1.05;
-}
-.pv-subtitle{ font-size: 0.85rem; color: var(--text-muted); margin: 0; }
-.pv-subtitle-flag{ color: var(--coral); font-weight: 600; }
-.pv-sync{ text-align: right; flex-shrink: 0; }
-.pv-sync-label{
-  font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.18em;
-  text-transform: uppercase; color: var(--text-muted); margin: 0 0 4px;
-}
-.pv-sync-time{
-  font-family: var(--mono); font-size: 0.95rem; font-weight: 500;
-  color: var(--ink); margin: 0;
-}
-
-/* ── Search ── */
-.pv-search{
-  display: flex; align-items: center; gap: 10px;
-  background: var(--paper-2);
-  border: 1px solid rgba(11,42,61,0.14);
-  padding: 12px 16px;
-  margin-bottom: 18px;
-  color: var(--text-muted);
-}
-.pv-search input{
-  flex: 1; border: none; background: none; outline: none;
-  font-family: var(--mono); font-size: 0.82rem; color: var(--ink);
-}
-.pv-search input::placeholder{ color: var(--text-muted); }
-
-/* ── Filters ── */
-.pv-filters{
-  display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 28px;
-  border-bottom: 1px solid rgba(11,42,61,0.14);
-}
-.pv-filter{
-  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--text-muted);
-  background: none; border: none; cursor: pointer;
-  padding: 10px 2px 12px; position: relative;
-  display: flex; align-items: center; gap: 7px;
-  transition: color 0.15s;
-}
-.pv-filter:hover{ color: var(--ink); }
-.pv-filter.is-active{ color: var(--ink); }
-.pv-filter.is-active::after{
-  content: ""; position: absolute; left: 0; right: 0; bottom: -1px;
-  height: 2px; background: var(--ink);
-}
-.pv-filter.is-active.is-flag::after{ background: var(--coral); }
-.pv-filter-count{
-  font-family: var(--mono); font-size: 0.62rem; font-weight: 700;
-  padding: 1px 6px; border-radius: 2px;
-  background: rgba(11,42,61,0.08); color: var(--text-muted);
-}
-.pv-filter.is-flag .pv-filter-count{ background: var(--coral-soft); color: var(--coral); }
-.pv-filter.is-active .pv-filter-count{ color: var(--ink); background: rgba(11,42,61,0.12); }
-.pv-filter.is-active.is-flag .pv-filter-count{ color: var(--coral); background: var(--coral-soft); }
-
-/* ── Empty state ── */
-.pv-empty{
-  text-align: center; padding: 64px 0; color: var(--text-muted);
-  font-family: var(--mono); font-size: 0.85rem;
-}
-.pv-empty svg{ margin-bottom: 12px; opacity: 0.5; }
-
-/* ── Manifest grid ── */
-.pv-grid{
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1px;
-  background: rgba(11,42,61,0.14);
-  border: 1px solid rgba(11,42,61,0.14);
-}
-
-.pv-manifest-card{
-  background: var(--paper);
-  padding: 18px;
-  cursor: pointer;
-  border-left: 4px solid var(--card-accent, var(--ink));
-  display: flex; flex-direction: column; gap: 10px;
-  transition: background 0.15s, transform 0.12s;
-}
-.pv-manifest-card:hover{ background: #F5F1E6; transform: translateY(-2px); }
-
-.pv-stamp-row{
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-}
-.pv-stamp{
-  display: inline-flex; align-items: center; gap: 8px;
-  border: 1px solid var(--card-accent, var(--ink));
-  padding: 5px 10px;
-  color: var(--card-accent, var(--ink));
-}
-.pv-stamp-icon{ display: flex; align-items: center; }
-.pv-stamp-number{
-  font-family: var(--mono); font-weight: 700; font-size: 0.85rem;
-  letter-spacing: 0.06em;
-}
-.pv-icon-coral{ color: var(--coral); flex-shrink: 0; margin-top: 4px; }
-
-.pv-route{
-  display: flex; align-items: baseline; gap: 8px;
-  font-family: var(--display); font-weight: 600; font-size: 1.05rem;
-  color: var(--ink); margin: 0;
-}
-.pv-route-arrow{ color: var(--text-muted); font-weight: 400; font-size: 0.9rem; }
-.pv-carrier{
-  font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--text-muted); margin: -4px 0 0;
-}
-
-.pv-attention{
+.pvc-filter {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #6E7F87; background: none; border: none;
+  border-right: 1px solid rgba(11,42,61,0.1);
+  cursor: pointer; padding: 10px 15px;
   display: flex; align-items: center; gap: 6px;
-  font-size: 0.78rem; color: var(--coral);
-  border-top: 1px solid rgba(214,73,47,0.18);
-  padding-top: 8px;
+  transition: color .15s, background .15s; white-space: nowrap;
 }
-
-.pv-card-footer{
-  display: flex; justify-content: space-between; align-items: center;
-  margin-top: auto; padding-top: 6px;
+.pvc-filter:last-child { border-right: none; }
+.pvc-filter:hover { color: #0B2A3D; background: #E2DCCB; }
+.pvc-filter.on { color: #0B2A3D; background: #E2DCCB; box-shadow: inset 0 -2px 0 #0B2A3D; }
+.pvc-filter.flag.on { box-shadow: inset 0 -2px 0 #D6492F; }
+.pvc-badge {
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.56rem; font-weight: 700;
+  padding: 1px 5px; border-radius: 2px;
+  background: rgba(11,42,61,0.08); color: #6E7F87;
 }
-.pv-tag{
-  font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em;
-  text-transform: uppercase; padding: 3px 9px; border-radius: 2px;
-  font-weight: 600;
-  background: var(--tag-bg, rgba(11,42,61,0.06));
-  color: var(--tag-color, var(--ink));
+.pvc-badge.flag { background: #F8DDD5; color: #D6492F; }
+.pvc-filter.on .pvc-badge { background: rgba(11,42,61,0.14); color: #0B2A3D; }
+.pvc-filter.flag.on .pvc-badge { background: #F8DDD5; color: #D6492F; }
+.pvc-card {
+  background: #ECE7DA; cursor: pointer;
+  display: flex; flex-direction: column;
+  border-left: 4px solid #2F7E6C;
+  transition: background .18s, transform .15s;
+  position: relative;
 }
-.pv-groupages{ font-family: var(--mono); font-size: 0.68rem; color: var(--text-muted); }
-
-/* ── Footer ── */
-.pv-footer{
-  text-align: center; padding-top: 20px;
-  font-family: var(--mono); font-size: 0.7rem;
-  letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-/* ── Responsive ── */
-@media (max-width: 640px){
-  .pv-header{ flex-direction: column; gap: 12px; }
-  .pv-sync{ text-align: left; }
-  .pv-grid{ grid-template-columns: 1fr; }
+.pvc-card:hover { background: #F0EBD8; transform: translateY(-3px); z-index: 1; }
+@media (max-width: 720px) {
+  .pvc-hero-inner { flex-direction: column; }
+  .pvc-hero-map { width: 100%; justify-content: center; }
 }
 `;

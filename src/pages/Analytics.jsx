@@ -190,22 +190,7 @@ export default function Analytics() {
           </g>
         </svg>
 
-        {/* topbar — identical pattern to Home */}
-        <div className="hero-topbar">
-          <Link to="/" className="brand">Portivo</Link>
-          <nav>
-            <Link to="/arrivals">Arrivals</Link>
-            <Link to="/containers">Containers</Link>
-            <Link to="/search">Search</Link>
-            <Link to="/import">Import</Link>
-            <Link to="/analytics" className="nav-active">Analytics</Link>
-          </nav>
-          <span className="sync">
-            <span className="sync-dot" />
-            Synced 11:51
-          </span>
-        </div>
-
+        
         {/* page title inside hero */}
         <div className="an-hero-content">
           <p className="eyebrow reveal" style={{ animationDelay: ".05s" }}>
