@@ -1,12 +1,15 @@
 /**
  * Portivo — Add Entry page
- * New file: src/pages/AddEntry.jsx
+ * Place at: src/pages/AddEntry.jsx
  *
  * Manual data-entry form for new containers, replacing the pen-and-paper
  * Excel workflow. Mirrors the real structure used at Genmar: one container
  * number, one internal agent, an ETA, and a repeatable list of groupages
  * (supplier + client + optional achat/vente prices) — exactly matching how
  * rows stack underneath a container number in their existing spreadsheets.
+ *
+ * Hero treatment mirrors the Arrivals page: full-bleed Unsplash photo,
+ * gradient + navy tint overlay, Fraunces heading, mono eyebrow.
  *
  * Dependencies already in your project:
  *   - lucide-react
@@ -21,8 +24,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Plus, Trash2, ChevronDown, Package, User, Calendar,
-  CheckCircle, ArrowLeft, AlertCircle, Building2,
+  Plus, Trash2, Package, User, Calendar,
+  CheckCircle, ArrowLeft, AlertCircle, Building2, Anchor, Ship,
 } from "lucide-react";
 
 const MONO = "'IBM Plex Mono', monospace";
@@ -35,7 +38,7 @@ if (typeof document !== "undefined" && !document.getElementById("pva-gf")) {
   document.head.appendChild(l);
 }
 
-/* ── Mock agent list — replace with real Genmar employees/brokers ── */
+/* ── Suggestion lists — free-text fields nudge toward these, but any value can be typed ── */
 const AGENTS = [
   "Salwa Ben Ali",
   "Karim Trabelsi",
@@ -46,6 +49,20 @@ const AGENTS = [
 
 const ORIGIN_PORTS = [
   "Shanghai", "Ningbo", "Shenzhen", "Qingdao", "Guangzhou", "Hong Kong",
+  "Singapore", "Busan", "Rotterdam", "Antwerp", "Hamburg", "Genoa",
+  "Valencia", "Barcelona", "Marseille", "Piraeus", "Istanbul", "Alexandria",
+  "Casablanca", "Algiers",
+];
+
+const ARRIVAL_PORTS = [
+  "Tunis-Goulette", "Rades", "Sfax", "Bizerte", "Sousse", "Gabes",
+  "Zarzis", "Tunis-Carthage",
+];
+
+const CARRIERS = [
+  "MSC", "Maersk", "CMA CGM", "Hapag-Lloyd", "COSCO", "Evergreen",
+  "ONE (Ocean Network Express)", "Yang Ming", "HMM", "ZIM",
+  "Wan Hai Lines", "PIL (Pacific International Lines)",
 ];
 
 let groupageIdCounter = 0;
@@ -54,12 +71,110 @@ function newGroupage() {
   return { id: groupageIdCounter, supplier: "", client: "", achat: "", vente: "" };
 }
 
+/* ── Autocomplete input — free text with a filtered suggestion dropdown ── */
+function AutocompleteInput({ value, onChange, options, placeholder, icon: Icon, error }) {
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+
+  const query = value.trim().toLowerCase();
+  const matches = query
+    ? options.filter(o => o.toLowerCase().includes(query)).slice(0, 6)
+    : options.slice(0, 6);
+
+  const choose = (val) => {
+    onChange(val);
+    setOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!open) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlight(h => Math.min(h + 1, matches.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight(h => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter") { if (matches[highlight]) { e.preventDefault(); choose(matches[highlight]); } }
+    else if (e.key === "Escape") { setOpen(false); }
+  };
+
+  return (
+    <div style={AC_WRAP}>
+      <div style={SELECT_WRAP}>
+        {Icon && <Icon size={14} style={SELECT_ICON} />}
+        <input
+          type="text"
+          value={value}
+          onChange={e => { onChange(e.target.value); setOpen(true); setHighlight(0); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          autoComplete="off"
+          style={{ ...SELECT, paddingLeft: Icon ? 38 : 14, ...(error ? INPUT_ERROR : {}) }}
+          className="pva-input"
+        />
+      </div>
+      {open && matches.length > 0 && (
+        <ul style={AC_LIST} role="listbox">
+          {matches.map((m, i) => (
+            <li
+              key={m}
+              role="option"
+              aria-selected={i === highlight}
+              onMouseDown={() => choose(m)}
+              onMouseEnter={() => setHighlight(i)}
+              style={{ ...AC_ITEM, ...(i === highlight ? AC_ITEM_ACTIVE : {}) }}
+            >
+              {m}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ── Hero — mirrors the Arrivals page hero treatment ── */
+function Hero() {
+  return (
+    <div style={HERO_WRAP}>
+      {/* Photo — Unsplash */}
+      <img
+        src="https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=468&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+        alt="Container terminal"
+        style={HERO_IMG}
+      />
+      {/* Gradient overlay — lighter so more of the photo shows through */}
+      <div style={HERO_GRADIENT} />
+      {/* Navy tint */}
+      <div style={HERO_TINT} />
+
+      {/* Photo credit */}
+      <span style={HERO_CREDIT}>Photo: Unsplash</span>
+
+      {/* Text */}
+      <div style={HERO_TEXT}>
+        <p style={EYEBROW}>Tunis-Goulette terminal · Manual entry</p>
+        <h1 style={H1}>Add a container</h1>
+        <p style={SUB}>
+          Enter a container exactly as it would appear in your tracking sheet —
+          one container, its agent, expected dates, and every groupage inside it.
+        </p>
+      </div>
+
+      {/* Back button sits over the photo, like the old in-header version */}
+      <button className="pva-back" onClick={() => window.history.back()} style={HERO_BACK}>
+        <ArrowLeft size={13} aria-hidden="true" /> Back
+      </button>
+    </div>
+  );
+}
+
 export default function AddEntry() {
   const navigate = useNavigate();
 
   const [containerNumber, setContainerNumber] = useState("");
   const [agent, setAgent] = useState("");
   const [origin, setOrigin] = useState("");
+  const [arrivalPort, setArrivalPort] = useState("");
+  const [carrier, setCarrier] = useState("");
   const [eta, setEta] = useState("");
   const [etd, setEtd] = useState("");
   const [groupages, setGroupages] = useState([newGroupage()]);
@@ -81,7 +196,8 @@ export default function AddEntry() {
   const validate = () => {
     const e = {};
     if (!containerNumber.trim()) e.containerNumber = "Container number is required";
-    if (!agent) e.agent = "Select the responsible agent";
+    if (!agent.trim()) e.agent = "Enter the responsible agent";
+    if (!arrivalPort.trim()) e.arrivalPort = "Arrival port is required";
     if (!eta) e.eta = "Expected arrival date is required";
     const hasAtLeastOneGroupage = groupages.some(g => g.supplier.trim() && g.client.trim());
     if (!hasAtLeastOneGroupage) e.groupages = "Add at least one groupage with a supplier and client";
@@ -96,10 +212,10 @@ export default function AddEntry() {
 
     const entry = {
       number: containerNumber.trim(),
-      agent,
+      agent: agent.trim(),
       origin: origin || "—",
-      destination: "Tunis-Goulette",
-      carrier: "—",
+      destination: arrivalPort.trim(),
+      carrier: carrier.trim() || "—",
       status: "in_transit",
       eta,
       etd: etd || null,
@@ -121,6 +237,8 @@ export default function AddEntry() {
     setContainerNumber("");
     setAgent("");
     setOrigin("");
+    setArrivalPort("");
+    setCarrier("");
     setEta("");
     setEtd("");
     setGroupages([newGroupage()]);
@@ -153,20 +271,7 @@ export default function AddEntry() {
     <div style={ROOT}>
       <style>{CSS}</style>
 
-      {/* ── Header ── */}
-      <div style={HEADER}>
-        <div style={HEADER_INNER}>
-          <button className="pva-back" onClick={() => navigate(-1)}>
-            <ArrowLeft size={13} aria-hidden="true" /> Back
-          </button>
-          <p style={EYEBROW}>Tunis-Goulette terminal · Manual entry</p>
-          <h1 style={H1}>Add a container</h1>
-          <p style={SUB}>
-            Enter a container exactly as it would appear in your tracking sheet —
-            one container, its agent, expected dates, and every groupage inside it.
-          </p>
-        </div>
-      </div>
+      <Hero />
 
       <form onSubmit={handleSubmit} style={FORM_WRAP}>
 
@@ -178,7 +283,7 @@ export default function AddEntry() {
           </div>
 
           <div style={CARD_BODY}>
-            <div style={FIELD_ROW}>
+            <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
                 <label style={LABEL}>Container number <span style={REQUIRED}>*</span></label>
                 <input
@@ -194,39 +299,52 @@ export default function AddEntry() {
 
               <div style={FIELD}>
                 <label style={LABEL}>Agent <span style={REQUIRED}>*</span></label>
-                <div style={SELECT_WRAP}>
-                  <User size={14} style={SELECT_ICON} />
-                  <select
-                    value={agent}
-                    onChange={e => setAgent(e.target.value)}
-                    style={{ ...SELECT, ...(errors.agent ? INPUT_ERROR : {}) }}
-                    className="pva-select"
-                  >
-                    <option value="">Select agent…</option>
-                    {AGENTS.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                  <ChevronDown size={14} style={SELECT_CHEVRON} />
-                </div>
+                <AutocompleteInput
+                  value={agent}
+                  onChange={setAgent}
+                  options={AGENTS}
+                  placeholder="Type agent name…"
+                  icon={User}
+                  error={errors.agent}
+                />
                 {errors.agent && <span style={ERROR_TEXT}>{errors.agent}</span>}
+              </div>
+
+              <div style={FIELD}>
+                <label style={LABEL}>Shipping line</label>
+                <AutocompleteInput
+                  value={carrier}
+                  onChange={setCarrier}
+                  options={CARRIERS}
+                  placeholder="Type carrier name…"
+                  icon={Ship}
+                />
               </div>
             </div>
 
-            <div style={FIELD_ROW}>
+            <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
                 <label style={LABEL}>Origin port</label>
-                <div style={SELECT_WRAP}>
-                  <Building2 size={14} style={SELECT_ICON} />
-                  <select
-                    value={origin}
-                    onChange={e => setOrigin(e.target.value)}
-                    style={SELECT}
-                    className="pva-select"
-                  >
-                    <option value="">Select origin…</option>
-                    {ORIGIN_PORTS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                  <ChevronDown size={14} style={SELECT_CHEVRON} />
-                </div>
+                <AutocompleteInput
+                  value={origin}
+                  onChange={setOrigin}
+                  options={ORIGIN_PORTS}
+                  placeholder="Type origin port…"
+                  icon={Building2}
+                />
+              </div>
+
+              <div style={FIELD}>
+                <label style={LABEL}>Arrival port <span style={REQUIRED}>*</span></label>
+                <AutocompleteInput
+                  value={arrivalPort}
+                  onChange={setArrivalPort}
+                  options={ARRIVAL_PORTS}
+                  placeholder="Type arrival port…"
+                  icon={Anchor}
+                  error={errors.arrivalPort}
+                />
+                {errors.arrivalPort && <span style={ERROR_TEXT}>{errors.arrivalPort}</span>}
               </div>
 
               <div style={FIELD}>
@@ -245,7 +363,7 @@ export default function AddEntry() {
               </div>
             </div>
 
-            <div style={FIELD_ROW}>
+            <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
                 <label style={LABEL}>
                   Expected departure (ETD)
@@ -263,6 +381,7 @@ export default function AddEntry() {
                 </div>
                 <span style={HELP_TEXT}>Used to remind you to confirm the ship has left as agreed.</span>
               </div>
+              <div style={FIELD} />
               <div style={FIELD} />
             </div>
           </div>
@@ -357,13 +476,21 @@ export default function AddEntry() {
 
 /* ── Inline style objects ── */
 const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
-const HEADER = { background: "#0B2A3D", padding: "0 clamp(24px,5vw,48px)" };
-const HEADER_INNER = { maxWidth: 760, padding: "40px 0 36px" };
-const EYEBROW = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#6F8B9C", margin: "0 0 14px" };
-const H1 = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2rem,4vw,2.8rem)", letterSpacing: "-0.02em", color: "#DCE6EA", lineHeight: 1, margin: "0 0 12px" };
-const SUB = { fontSize: "0.85rem", color: "#9DB5C0", maxWidth: "56ch", lineHeight: 1.6, margin: 0 };
 
-const FORM_WRAP = { maxWidth: 760, margin: "0 auto", padding: "36px clamp(24px,5vw,48px) 80px" };
+/* Hero — mirrors the Arrivals page Hero exactly (560px, photo + gradient + tint) */
+const HERO_WRAP = { position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
+const HERO_IMG = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%" };
+const HERO_GRADIENT = { position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)" };
+const HERO_TINT = { position: "absolute", inset: 0, background: "rgba(11,42,61,.1)" };
+const HERO_CREDIT = { position: "absolute", bottom: 16, right: 16, zIndex: 3, fontFamily: MONO, fontSize: 9, letterSpacing: ".1em", color: "rgba(255,255,255,.28)", textTransform: "uppercase" };
+const HERO_TEXT = { position: "relative", zIndex: 2, padding: "0 clamp(24px,5vw,48px) 40px" };
+const HERO_BACK = { position: "absolute", top: 28, left: "clamp(24px,5vw,48px)", zIndex: 3, margin: 0 };
+
+const EYEBROW = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#C7E0D8", margin: "0 0 14px" };
+const H1 = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2.4rem,5vw,4rem)", letterSpacing: "-0.02em", color: "#DCE6EA", lineHeight: 0.95, margin: "0 0 12px" };
+const SUB = { fontFamily: "'Fraunces', serif", fontWeight: 300, fontSize: "clamp(.85rem,1.5vw,1.05rem)", color: "rgba(220,230,234,.7)", maxWidth: "56ch", lineHeight: 1.55, margin: 0 };
+
+const FORM_WRAP = { maxWidth: 1180, margin: "0 auto", padding: "36px clamp(24px,5vw,48px) 80px" };
 
 const CARD = { background: "#fff", border: "1px solid rgba(11,42,61,0.14)", borderRadius: 12, marginBottom: 24, overflow: "hidden" };
 const CARD_HEAD = { display: "flex", alignItems: "center", gap: 9, padding: "16px 22px", borderBottom: "1px solid rgba(11,42,61,0.1)", background: "#FAF8F2" };
@@ -372,6 +499,7 @@ const CARD_COUNT = { marginLeft: "auto", fontFamily: MONO, fontSize: "0.7rem", f
 const CARD_BODY = { padding: "22px" };
 
 const FIELD_ROW = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 };
+const FIELD_ROW_3 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 18, marginBottom: 18 };
 const FIELD = { display: "flex", flexDirection: "column", gap: 6 };
 const LABEL = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "#6E7F87", display: "flex", alignItems: "center", gap: 6 };
 const REQUIRED = { color: "#D6492F" };
@@ -386,6 +514,11 @@ const SELECT_WRAP = { position: "relative", display: "flex", alignItems: "center
 const SELECT_ICON = { position: "absolute", left: 14, color: "#6E7F87", pointerEvents: "none" };
 const SELECT_CHEVRON = { position: "absolute", right: 14, color: "#6E7F87", pointerEvents: "none" };
 const SELECT = { width: "100%", padding: "11px 14px 11px 38px", fontSize: "0.9rem", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none", appearance: "none", cursor: "pointer" };
+
+const AC_WRAP = { position: "relative" };
+const AC_LIST = { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, margin: 0, padding: 4, listStyle: "none", background: "#fff", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, boxShadow: "0 8px 24px rgba(11,42,61,0.12)", maxHeight: 220, overflowY: "auto" };
+const AC_ITEM = { padding: "9px 12px", fontSize: "0.85rem", color: "#1C2B33", borderRadius: 6, cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif" };
+const AC_ITEM_ACTIVE = { background: "rgba(24,95,165,0.08)", color: "#0B2A3D" };
 
 const GROUPAGE_ERROR_BANNER = { display: "flex", alignItems: "center", gap: 8, margin: "16px 22px 0", padding: "10px 14px", background: "#FAEEDA", border: "1px solid rgba(201,145,43,0.35)", borderRadius: 8, color: "#854F0B", fontSize: "0.78rem" };
 const GROUPAGE_LIST = { padding: "18px 22px 6px" };
@@ -409,10 +542,11 @@ const CSS = `
   display: inline-flex; align-items: center; gap: 6px;
   font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
   letter-spacing: 0.18em; text-transform: uppercase;
-  color: #6F8B9C; background: none; border: none; cursor: pointer;
-  margin-bottom: 18px; padding: 0; transition: color .15s;
+  color: rgba(220,230,234,0.85); background: rgba(11,42,61,0.35);
+  border: 1px solid rgba(255,255,255,0.18); cursor: pointer;
+  padding: 8px 14px; border-radius: 6px; transition: background .15s, color .15s;
 }
-.pva-back:hover { color: #DCE6EA; }
+.pva-back:hover { background: rgba(11,42,61,0.55); color: #DCE6EA; }
 
 .pva-input:focus, .pva-select:focus {
   border-color: #185FA5 !important;
@@ -455,7 +589,12 @@ const CSS = `
 }
 .pva-btn-secondary:hover { background: #F1EFE8; }
 
+@media (max-width: 900px) {
+  .pva-field-row-3 { grid-template-columns: 1fr 1fr !important; }
+}
+
 @media (max-width: 640px) {
   .pva-groupage-fields { grid-template-columns: 1fr !important; }
+  .pva-field-row-3 { grid-template-columns: 1fr !important; }
 }
 `;

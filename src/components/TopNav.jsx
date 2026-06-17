@@ -40,6 +40,7 @@ export default function TopNav() {
         <NavLink to="/search" className={navClass}>Search</NavLink>
         <NavLink to="/import" className={navClass}>Import</NavLink>
         <NavLink to="/analytics" className={navClass}>Analytics</NavLink>
+        <NavLink to="/AddEntry" className={navClass}>Add Entry</NavLink>
       </nav>
 
       <span className="pv-topnav-sync">

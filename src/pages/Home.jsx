@@ -96,6 +96,22 @@ const IconChart = (props) => (
   </svg>
 );
 
+const IconPlus = (props) => (
+  <svg viewBox="0 0 24 24" className="icon" {...props}>
+    <g
+      stroke="currentColor"
+      strokeWidth="1.4"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v8" />
+      <path d="M8 12h8" />
+    </g>
+  </svg>
+);
+
 const SHIP_PATH = "M-8,-5 9,0 -8,5 -3,0Z";
 
 const LANES = [
@@ -155,6 +171,16 @@ const PORTS_OF_CALL = [
     status: "Updated weekly",
     href: "/analytics",
   },
+  {
+    berth: "Berth 06 — Add entry",
+    accent: "slate",
+    Icon: IconPlus,
+    title: "Add entry",
+    description:
+      "Log a new shipment by hand — container number, route, carrier, and status — straight into the manifest.",
+    status: "Manual log entry",
+    href: "/AddEntry",
+  },
 ];
 
 const LEDGER_ITEMS = [
@@ -200,7 +226,8 @@ export default function Home() {
             <ellipse cx="1150" cy="480" rx="140" ry="105" transform="rotate(-12 1150 480)" />
             <ellipse cx="1150" cy="480" rx="270" ry="205" transform="rotate(-12 1150 480)" />
             <ellipse cx="1150" cy="480" rx="430" ry="330" transform="rotate(-12 1150 480)" />
-            <ellipse cx="1150" cy="480" rx="620" ry="475" transform="rotate(-12 1150 480)" /></g>
+            <ellipse cx="1150" cy="480" rx="620" ry="475" transform="rotate(-12 1150 480)" />
+          </g>
 
           {/* compass rose */}
           <g transform="translate(1300,110)" stroke="var(--text-on-ink-muted)" fill="none" strokeWidth="1">
@@ -276,6 +303,7 @@ export default function Home() {
             <Link to="/search">Search</Link>
             <Link to="/import">Import</Link>
             <Link to="/analytics">Analytics</Link>
+            <Link to="/AddEntry">Add Entry</Link>
           </nav>
           <span className="sync">
             <span className="sync-dot" />
@@ -703,6 +731,7 @@ const CSS = `
 .portivo-root .call-card.c-coral{ --card-accent:var(--coral); }
 .portivo-root .call-card.c-amber{ --card-accent:var(--amber); }
 .portivo-root .call-card.c-ink{ --card-accent:var(--ink); }
+.portivo-root .call-card.c-slate{ --card-accent:#5B6E78; }
 
 /* ---------- FOOTER ---------- */
 .portivo-root footer{

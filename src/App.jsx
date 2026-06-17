@@ -7,6 +7,7 @@ import ContainerDetail from "./pages/ContainerDetail";
 import Search from "./pages/Search";
 import Import from "./pages/Import";
 import Analytics from "./pages/Analytics";
+import AddEntry from "./pages/AddEntry";
 
 /**
  * AppShell — only renders the TopNav.
@@ -36,6 +37,8 @@ export default function App() {
         <Route path="/search"          element={<AppShell><Search /></AppShell>} />
         <Route path="/import"          element={<AppShell><Import /></AppShell>} />
         <Route path="/analytics"       element={<AppShell><Analytics /></AppShell>} />
+        <Route path="/AddEntry"       element={<AppShell><AddEntry /></AppShell>} />
+
       </Routes>
     </BrowserRouter>
   );
