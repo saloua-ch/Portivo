@@ -77,17 +77,43 @@ const css = `
 .portivo-import * { box-sizing: border-box; margin: 0; padding: 0; }
 .portivo-import { font-family: 'Inter', system-ui, sans-serif; background: #f5f2eb; }
 
-/* ── Hero ── */
-.pi-hero { background: #07151f; position: relative; overflow: hidden; }
-.pi-hero-grid { display: grid; grid-template-columns: 1fr 220px; }
-.pi-hero-left { padding: 44px 44px 40px; }
+/* ── Hero — now a full photo hero like Arrivals/Search ── */
+.pi-hero {
+  position: relative;
+  height: 560px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.pi-hero-photo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+}
+.pi-hero-gradient {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%);
+}
+.pi-hero-tint {
+  position: absolute; inset: 0;
+  background: rgba(11,42,61,.1);
+}
+.pi-hero-credit {
+  position: absolute; bottom: 100px; right: 16px; z-index: 3;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  letter-spacing: .1em; color: rgba(255,255,255,.28); text-transform: uppercase;
+}
+
+.pi-hero-content { position: relative; z-index: 2; padding: 0 44px; }
 
 .pi-tag {
   display: inline-flex; align-items: center; gap: 7px;
-  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
   border-radius: 20px; padding: 5px 14px;
   font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
-  color: #6b96b8; margin-bottom: 22px;
+  color: #c7e0d8; margin-bottom: 18px;
 }
 .pi-tag-dot {
   width: 6px; height: 6px; border-radius: 50%; background: #1D9E75;
@@ -96,10 +122,10 @@ const css = `
 @keyframes pi-pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
 .pi-h1 {
-  font-family: 'DM Serif Display', serif; font-size: 54px; font-weight: 400;
+  font-family: 'DM Serif Display', serif; font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 400;
   color: #eae6dc; line-height: 1; margin-bottom: 12px; letter-spacing: -.5px;
 }
-.pi-sub { font-size: 13.5px; color: #5d7f99; line-height: 1.7; max-width: 400px; margin-bottom: 28px; }
+.pi-sub { font-size: 13.5px; color: rgba(234,230,220,.72); line-height: 1.7; max-width: 420px; margin-bottom: 24px; }
 
 .pi-pills { display: flex; gap: 10px; flex-wrap: wrap; }
 .pi-pill {
@@ -108,33 +134,29 @@ const css = `
   font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
 }
 .pi-pill svg { width: 13px; height: 13px; flex-shrink: 0; }
-.pi-pill-green { background: rgba(29,158,117,.15); color: #4dcca0; border: 1px solid rgba(29,158,117,.25); }
-.pi-pill-blue  { background: rgba(24,95,165,.15);  color: #5ba3e0; border: 1px solid rgba(24,95,165,.25); }
-.pi-pill-amber { background: rgba(186,117,23,.15); color: #e8a838; border: 1px solid rgba(186,117,23,.25); }
+.pi-pill-green { background: rgba(29,158,117,.18); color: #4dcca0; border: 1px solid rgba(29,158,117,.3); }
+.pi-pill-blue  { background: rgba(24,95,165,.18);  color: #5ba3e0; border: 1px solid rgba(24,95,165,.3); }
+.pi-pill-amber { background: rgba(186,117,23,.18); color: #e8a838; border: 1px solid rgba(186,117,23,.3); }
 
-.pi-hero-right {
-  display: flex; align-items: flex-end; justify-content: center;
-  overflow: hidden; opacity: .55;
-}
-.pi-crane { width: 200px; display: block; }
-
-/* ── Process strip ── */
+/* ── Process strip — sits at the bottom edge of the hero photo ── */
 .pi-process {
+  position: relative; z-index: 2;
   display: grid; grid-template-columns: repeat(3,1fr);
-  background: #0d2135; border-top: 1px solid rgba(255,255,255,.06);
+  margin-top: 28px;
+  border-top: 1px solid rgba(255,255,255,.12);
 }
 .pi-step {
-  padding: 18px 24px; display: flex; align-items: center; gap: 12px;
-  border-right: 1px solid rgba(255,255,255,.06);
+  padding: 16px 24px 20px; display: flex; align-items: center; gap: 12px;
+  border-right: 1px solid rgba(255,255,255,.1);
 }
 .pi-step:last-child { border-right: none; }
 .pi-step-num {
   font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
-  color: #1D9E75; background: rgba(29,158,117,.15); border: 1px solid rgba(29,158,117,.2);
+  color: #4dcca0; background: rgba(29,158,117,.18); border: 1px solid rgba(29,158,117,.28);
   border-radius: 4px; padding: 3px 7px; flex-shrink: 0;
 }
-.pi-step-text { font-size: 12px; color: #5d7f99; line-height: 1.4; }
-.pi-step-text strong { display: block; color: #8fb0c8; font-weight: 500; font-size: 12px; margin-bottom: 2px; }
+.pi-step-text { font-size: 12px; color: rgba(220,230,234,.65); line-height: 1.4; }
+.pi-step-text strong { display: block; color: #DCE6EA; font-weight: 500; font-size: 12px; margin-bottom: 2px; }
 
 /* ── Stat bar ── */
 .pi-stats { display: grid; grid-template-columns: repeat(4,1fr); background: #eae6dc; border-bottom: 1px solid #ccc8be; }
@@ -352,55 +374,38 @@ const Icon = {
   ),
 };
 
-// ─── Crane illustration ──────────────────────────────────────────────────────
-
-function CraneSVG() {
-  return (
-    <svg className="pi-crane" viewBox="0 0 200 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="90" y="40" width="8" height="200" fill="#1D9E75" rx="2" />
-      <rect x="60" y="40" width="80" height="7" fill="#185FA5" rx="2" />
-      <rect x="58" y="47" width="4" height="60" fill="#185FA5" rx="1" />
-      <rect x="90" y="47" width="50" height="4" fill="#1D9E75" rx="1" />
-      <line x1="62" y1="47" x2="94" y2="51" stroke="#BA7517" strokeWidth="1.5" />
-      <line x1="98" y1="47" x2="140" y2="51" stroke="#BA7517" strokeWidth="1.5" />
-      <rect x="130" y="51" width="12" height="30" fill="#185FA5" rx="2" />
-      <rect x="125" y="81" width="22" height="6" fill="#0c447c" rx="1" />
-      <rect x="70" y="240" width="60" height="14" fill="#185FA5" rx="2" />
-      <rect x="75" y="226" width="50" height="14" fill="#1D9E75" rx="2" />
-      <rect x="80" y="214" width="40" height="12" fill="#3B6D11" rx="2" />
-      <rect x="86" y="202" width="28" height="12" fill="#185FA5" rx="2" />
-      <rect x="56" y="247" width="88" height="10" fill="#0d2135" rx="2" />
-      <line x1="94" y1="81" x2="136" y2="81" stroke="#BA7517" strokeWidth="1" strokeDasharray="3,3" />
-    </svg>
-  );
-}
-
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function Hero() {
   return (
     <div className="pi-hero">
-      <div className="pi-hero-grid">
-        <div className="pi-hero-left">
-          <div className="pi-tag">
-            <div className="pi-tag-dot" />
-            Live sync active — Tunis-Goulette Terminal
-          </div>
-          <h1 className="pi-h1">Manifest<br />Import</h1>
-          <p className="pi-sub">
-            Upload your monthly Excel export to update the fleet registry.
-            New containers are added, existing ones flagged for review before any changes are committed.
-          </p>
-          <div className="pi-pills">
-            <span className="pi-pill pi-pill-green"><Icon.Plus /> New containers</span>
-            <span className="pi-pill pi-pill-blue"><Icon.Refresh /> Updates</span>
-            <span className="pi-pill pi-pill-amber"><Icon.Alert /> Conflicts</span>
-          </div>
+      {/* Photo — container terminal / dock scene */}
+      <img
+        className="pi-hero-photo"
+        src="https://images.unsplash.com/photo-1720931623686-588ef1014e2a?q=80&w=1032&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
+        alt="Container terminal with stacked shipping containers"
+      />
+      <div className="pi-hero-gradient" />
+      <div className="pi-hero-tint" />
+      <span className="pi-hero-credit">Photo: Unsplash</span>
+
+      <div className="pi-hero-content">
+        <div className="pi-tag">
+          <div className="pi-tag-dot" />
+          Live sync active — Tunis-Goulette Terminal
         </div>
-        <div className="pi-hero-right">
-          <CraneSVG />
+        <h1 className="pi-h1">Manifest Import</h1>
+        <p className="pi-sub">
+          Upload your monthly Excel export to update the fleet registry.
+          New containers are added, existing ones flagged for review before any changes are committed.
+        </p>
+        <div className="pi-pills">
+          <span className="pi-pill pi-pill-green"><Icon.Plus /> New containers</span>
+          <span className="pi-pill pi-pill-blue"><Icon.Refresh /> Updates</span>
+          <span className="pi-pill pi-pill-amber"><Icon.Alert /> Conflicts</span>
         </div>
       </div>
+
       <div className="pi-process">
         {[
           ["01", "Upload Excel file", "Drag-drop or browse your .xlsx manifest"],
@@ -462,7 +467,13 @@ function DropZone({ onFile, isDragging, setIsDragging }) {
       onDragLeave={() => setIsDragging(false)}
       onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) onFile(f); }}
     >
-      <input ref={inputRef} type="file" accept=".xlsx,.xls" onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        style={{ display: "none" }}
+        onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }}
+      />
       <div className="pi-dz-inner">
         <div className="pi-dz-icon"><Icon.Upload /></div>
         <p className="pi-dz-title">{isDragging ? "Release to start import" : "Drop your manifest here"}</p>

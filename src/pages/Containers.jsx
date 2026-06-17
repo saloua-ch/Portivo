@@ -47,137 +47,6 @@ function etaLabel(str) {
   return fmtShort(str);
 }
 
-/* ── Isometric container yard SVG ── */
-function ContainerYard() {
-  return (
-    <svg viewBox="0 0 420 260" width="420" height="260" aria-hidden="true" style={{ display: "block", opacity: 0.9 }}>
-
-      {/* Ground plane */}
-      <polygon points="0,200 210,130 420,200 210,260" fill="#082030" />
-
-      {/* === ROW A: left stack — 2 containers === */}
-      {/* A1 bottom — teal (in transit) */}
-      <g transform="translate(30,90)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#1a5c4a" />
-        <polygon points="0,20 0,65 60,80 60,50" fill="#0d3d30" />
-        <polygon points="120,20 120,65 60,80 60,50" fill="#164f3e" />
-        <line x1="0" y1="35" x2="60" y2="63" stroke="#091f18" strokeWidth="0.8" />
-        <line x1="0" y1="50" x2="60" y2="72" stroke="#091f18" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="63" stroke="#102d24" strokeWidth="0.8" />
-        <line x1="120" y1="50" x2="60" y2="72" stroke="#102d24" strokeWidth="0.8" />
-        <line x1="90" y1="30" x2="90" y2="72" stroke="#102d24" strokeWidth="1.2" />
-        <line x1="90" y1="51" x2="120" y2="45" stroke="#102d24" strokeWidth="0.8" />
-      </g>
-      {/* A2 top — amber (customs) */}
-      <g transform="translate(30,55)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#7a5810" />
-        <polygon points="0,20 0,55 60,70 60,50" fill="#4d3808" />
-        <polygon points="120,20 120,55 60,70 60,50" fill="#63470a" />
-        <line x1="0" y1="35" x2="60" y2="55" stroke="#2d2005" strokeWidth="0.8" />
-        <line x1="0" y1="48" x2="60" y2="65" stroke="#2d2005" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="55" stroke="#3d2a07" strokeWidth="0.8" />
-        <line x1="90" y1="28" x2="90" y2="66" stroke="#3d2a07" strokeWidth="1.2" />
-      </g>
-
-      {/* === ROW B: center — 4 stacked === */}
-      {/* B1 bottom — red (attention) */}
-      <g transform="translate(150,110)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#7a2318" />
-        <polygon points="0,20 0,65 60,80 60,50" fill="#4d160f" />
-        <polygon points="120,20 120,65 60,80 60,50" fill="#631d13" />
-        <line x1="0" y1="35" x2="60" y2="63" stroke="#2d0c09" strokeWidth="0.8" />
-        <line x1="0" y1="50" x2="60" y2="72" stroke="#2d0c09" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="63" stroke="#3d100c" strokeWidth="0.8" />
-        <line x1="120" y1="50" x2="60" y2="72" stroke="#3d100c" strokeWidth="0.8" />
-        <line x1="90" y1="30" x2="90" y2="72" stroke="#3d100c" strokeWidth="1.2" />
-      </g>
-      {/* B2 */}
-      <g transform="translate(150,75)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#1a5c4a" />
-        <polygon points="0,20 0,58 60,73 60,50" fill="#0d3d30" />
-        <polygon points="120,20 120,58 60,73 60,50" fill="#164f3e" />
-        <line x1="0" y1="35" x2="60" y2="57" stroke="#091f18" strokeWidth="0.8" />
-        <line x1="0" y1="50" x2="60" y2="68" stroke="#091f18" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="57" stroke="#102d24" strokeWidth="0.8" />
-        <line x1="90" y1="28" x2="90" y2="68" stroke="#102d24" strokeWidth="1.2" />
-      </g>
-      {/* B3 */}
-      <g transform="translate(150,40)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#7a5810" />
-        <polygon points="0,20 0,58 60,73 60,50" fill="#4d3808" />
-        <polygon points="120,20 120,58 60,73 60,50" fill="#63470a" />
-        <line x1="0" y1="35" x2="60" y2="57" stroke="#2d2005" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="57" stroke="#3d2a07" strokeWidth="0.8" />
-        <line x1="90" y1="28" x2="90" y2="68" stroke="#3d2a07" strokeWidth="1.2" />
-      </g>
-      {/* B4 top */}
-      <g transform="translate(150,8)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#184f41" />
-        <polygon points="0,20 0,55 60,68 60,50" fill="#0b3229" />
-        <polygon points="120,20 120,55 60,68 60,50" fill="#134437" />
-        <line x1="90" y1="28" x2="90" y2="65" stroke="#0a2820" strokeWidth="1.2" />
-      </g>
-
-      {/* === ROW C: right — 2 containers === */}
-      {/* C1 bottom — blue (arriving) */}
-      <g transform="translate(270,130)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#1e3a6e" />
-        <polygon points="0,20 0,65 60,80 60,50" fill="#122547" />
-        <polygon points="120,20 120,65 60,80 60,50" fill="#192f5c" />
-        <line x1="0" y1="35" x2="60" y2="63" stroke="#0b1830" strokeWidth="0.8" />
-        <line x1="0" y1="50" x2="60" y2="72" stroke="#0b1830" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="63" stroke="#101f3d" strokeWidth="0.8" />
-        <line x1="90" y1="30" x2="90" y2="72" stroke="#101f3d" strokeWidth="1.2" />
-      </g>
-      {/* C2 top — teal */}
-      <g transform="translate(270,95)">
-        <polygon points="0,20 60,-10 120,20 60,50" fill="#1a5c4a" />
-        <polygon points="0,20 0,58 60,73 60,50" fill="#0d3d30" />
-        <polygon points="120,20 120,58 60,73 60,50" fill="#164f3e" />
-        <line x1="0" y1="35" x2="60" y2="57" stroke="#091f18" strokeWidth="0.8" />
-        <line x1="120" y1="35" x2="60" y2="57" stroke="#102d24" strokeWidth="0.8" />
-        <line x1="90" y1="28" x2="90" y2="68" stroke="#102d24" strokeWidth="1.2" />
-      </g>
-
-      {/* === Crane structure === */}
-      <g opacity="0.5">
-        <line x1="385" y1="50" x2="385" y2="230" stroke="#18435A" strokeWidth="3" />
-        <line x1="410" y1="70" x2="410" y2="230" stroke="#18435A" strokeWidth="3" />
-        <line x1="340" y1="50" x2="420" y2="50" stroke="#18435A" strokeWidth="4" />
-        <line x1="340" y1="58" x2="420" y2="58" stroke="#18435A" strokeWidth="1.5" />
-        <line x1="360" y1="54" x2="348" y2="120" stroke="#18435A" strokeWidth="1" strokeDasharray="3 4" />
-        <line x1="380" y1="54" x2="368" y2="120" stroke="#18435A" strokeWidth="1" strokeDasharray="3 4" />
-        <rect x="340" y="120" width="36" height="6" fill="#18435A" rx="1" />
-        <line x1="385" y1="50" x2="410" y2="100" stroke="#18435A" strokeWidth="1.5" />
-        <line x1="410" y1="50" x2="385" y2="100" stroke="#18435A" strokeWidth="1.5" />
-        <line x1="397" y1="100" x2="397" y2="230" stroke="#18435A" strokeWidth="2" />
-      </g>
-
-      {/* Foreground partial container */}
-      <g transform="translate(60,168)">
-        <polygon points="0,16 90,-14 150,8 60,38" fill="#7a2318" />
-        <polygon points="0,16 0,46 60,60 60,38" fill="#4d160f" />
-        <polygon points="150,8 150,38 60,60 60,38" fill="#631d13" />
-        <line x1="0" y1="30" x2="60" y2="52" stroke="#2d0c09" strokeWidth="0.8" />
-        <line x1="150" y1="22" x2="60" y2="52" stroke="#3d100c" strokeWidth="0.8" />
-        <line x1="112" y1="21" x2="112" y2="51" stroke="#3d100c" strokeWidth="1.2" />
-      </g>
-
-      {/* Legend */}
-      <g fontFamily="IBM Plex Mono" fontSize="10" letterSpacing="1.5" fill="#6F8B9C">
-        <circle cx="16" cy="240" r="4" fill="#2F7E6C" />
-        <text x="26" y="244">IN TRANSIT</text>
-        <circle cx="110" cy="240" r="4" fill="#C9912B" />
-        <text x="120" y="244">CUSTOMS</text>
-        <circle cx="194" cy="240" r="4" fill="#7a2318" />
-        <text x="204" y="244">ATTENTION</text>
-        <circle cx="293" cy="240" r="4" fill="#1e3a6e" />
-        <text x="303" y="244">ARRIVING</text>
-      </g>
-    </svg>
-  );
-}
-
 /* ── Main component ── */
 export default function Containers() {
   const navigate = useNavigate();
@@ -230,17 +99,21 @@ export default function Containers() {
     <div style={ROOT}>
       <style>{CSS}</style>
 
-      {/* ── Hero ── */}
+      {/* ── Hero — full photo, matches Arrivals/Search/Import ── */}
       <div style={HERO}>
-        <div style={HERO_INNER}>
-          <div style={HERO_TEXT}>
-            <p style={EYEBROW}>Tunis–Goulette terminal · Fleet manifest</p>
-            <h1 style={H1}>Containers</h1>
-            <p style={HERO_SUB}>Every unit in the fleet — in transit, clearing customs, or delivered.</p>
-          </div>
-          <div style={HERO_MAP}>
-            <ContainerYard />
-          </div>
+        <img
+          src="https://images.unsplash.com/photo-1583686298564-46fbffda0707?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
+          alt="Stacked shipping containers in a terminal yard"
+          style={HERO_PHOTO}
+        />
+        <div style={HERO_GRADIENT} />
+        <div style={HERO_TINT} />
+        <span style={HERO_CREDIT}>Photo: Unsplash</span>
+
+        <div style={HERO_CONTENT}>
+          <p style={EYEBROW}>Tunis–Goulette terminal · Fleet manifest</p>
+          <h1 style={H1}>Containers</h1>
+          <p style={HERO_SUB}>Every unit in the fleet — in transit, clearing customs, or delivered.</p>
         </div>
       </div>
 
@@ -370,13 +243,39 @@ export default function Containers() {
 
 /* ── Inline style objects ── */
 const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
-const HERO = { background: "#0B2A3D", position: "relative", overflow: "hidden", padding: "0 48px" };
-const HERO_INNER = { display: "flex", alignItems: "stretch", minHeight: 280, gap: 0 };
-const HERO_TEXT = { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "44px 0", zIndex: 2 };
-const EYEBROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#6F8B9C", margin: "0 0 14px" };
+
+const HERO = {
+  position: "relative",
+  height: 560,
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "flex-end",
+};
+const HERO_PHOTO = {
+  position: "absolute", inset: 0,
+  width: "100%", height: "100%",
+  objectFit: "cover", objectPosition: "center 35%",
+};
+const HERO_GRADIENT = {
+  position: "absolute", inset: 0,
+  background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)",
+};
+const HERO_TINT = {
+  position: "absolute", inset: 0,
+  background: "rgba(11,42,61,.1)",
+};
+const HERO_CREDIT = {
+  position: "absolute", bottom: 100, right: 16, zIndex: 3,
+  fontFamily: "'IBM Plex Mono', monospace", fontSize: 9,
+  letterSpacing: "0.1em", color: "rgba(255,255,255,.28)", textTransform: "uppercase",
+};
+const HERO_CONTENT = { position: "relative", zIndex: 2, padding: "0 44px 40px" };
+
+const EYEBROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#C7E0D8", margin: "0 0 14px" };
 const H1 = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2.6rem, 5vw, 4rem)", letterSpacing: "-0.02em", color: "#DCE6EA", lineHeight: 0.95, margin: "0 0 14px" };
-const HERO_SUB = { fontSize: "0.83rem", color: "#6F8B9C", maxWidth: "30ch", lineHeight: 1.6, margin: 0 };
-const HERO_MAP = { width: "clamp(260px,35vw,420px)", flexShrink: 0, display: "flex", alignItems: "flex-end", justifyContent: "center" };
+const HERO_SUB = { fontSize: "0.83rem", color: "rgba(220,230,234,.7)", maxWidth: "34ch", lineHeight: 1.6, margin: 0 };
+
 const LEDGER = { display: "flex", flexWrap: "wrap", borderBottom: "1px solid rgba(11,42,61,0.18)" };
 const LEDGER_CELL = { flex: "1 1 120px", padding: "18px 28px", borderRight: "1px solid rgba(11,42,61,0.12)", borderLeft: "3px solid", background: "#E2DCCB" };
 const LEDGER_NUM = { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: "clamp(1.4rem,2.8vw,2.1rem)", lineHeight: 1 };
