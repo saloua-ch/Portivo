@@ -3,10 +3,26 @@
  * Place at: src/pages/AddEntry.jsx
  *
  * Manual data-entry form for new containers, replacing the pen-and-paper
- * Excel workflow. Mirrors the real structure used at Genmar: one container
- * number, one internal agent, an ETA, and a repeatable list of groupages
- * (supplier + client + optional achat/vente prices) — exactly matching how
- * rows stack underneath a container number in their existing spreadsheets.
+ * Excel workflow. Field structure confirmed against the real Genmar sheet:
+ *
+ *   CONTAINER-LEVEL (one value per container):
+ *     - Conteneur (number)
+ *     - POL (port of loading)
+ *     - POD (port of discharge — can be multiple Tunisian ports)
+ *     - Date d'embarquement (loading date)
+ *     - Date d'arrivée Tunis (ETA — manually tracked today, the "(rappel)"
+ *       reminder note in their sheet)
+ *
+ *   GROUPAGE-LEVEL (one set per supplier/client pair inside the container):
+ *     - Shipper's name
+ *     - Booking date
+ *     - Référence du client
+ *     - Fournisseur (supplier)
+ *     - Client
+ *     - Date d'enlèvement (pickup date)
+ *     - Poids (weight, kg)
+ *     - Nombre de colis (package count)
+ *     - Achat / Vente (optional, filled in later)
  *
  * Hero treatment mirrors the Arrivals page: full-bleed Unsplash photo,
  * gradient + navy tint overlay, Fraunces heading, mono eyebrow.
@@ -15,10 +31,10 @@
  *   - lucide-react
  *   - react-router-dom
  *
- * NOTE: AGENTS list below is mock data — replace with your real employee/
- * broker list. This page does not yet persist to a shared backend; submitting
- * shows a success state and logs the entry shape to the console. Wire up
- * your data layer (API call, mockData mutation, etc.) where marked.
+ * NOTE: AGENTS/CARRIERS/PORTS lists are mock suggestion data — replace with
+ * your real lists. This page does not yet persist to a shared backend;
+ * submitting shows a success state and logs the entry shape to the console.
+ * Wire up your data layer (API call, mockData mutation, etc.) where marked.
  */
 
 import { useState } from "react";
@@ -26,6 +42,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Plus, Trash2, Package, User, Calendar,
   CheckCircle, ArrowLeft, AlertCircle, Building2, Anchor, Ship,
+  Weight, Boxes, FileSignature,
 } from "lucide-react";
 
 const MONO = "'IBM Plex Mono', monospace";
@@ -45,6 +62,10 @@ const AGENTS = [
   "Nadia Mansour",
   "Walid Cherif",
   "Amel Jendoubi",
+];
+
+const SHIPPERS = [
+  "Genmar Shipping", "Med Freight Lines", "Atlas Cargo Services",
 ];
 
 const ORIGIN_PORTS = [
@@ -68,7 +89,19 @@ const CARRIERS = [
 let groupageIdCounter = 0;
 function newGroupage() {
   groupageIdCounter += 1;
-  return { id: groupageIdCounter, supplier: "", client: "", achat: "", vente: "" };
+  return {
+    id: groupageIdCounter,
+    shipper: "",
+    bookingDate: "",
+    clientRef: "",
+    supplier: "",
+    client: "",
+    pickupDate: "",
+    weight: "",
+    packages: "",
+    achat: "",
+    vente: "",
+  };
 }
 
 /* ── Autocomplete input — free text with a filtered suggestion dropdown ── */
@@ -135,31 +168,24 @@ function AutocompleteInput({ value, onChange, options, placeholder, icon: Icon, 
 function Hero() {
   return (
     <div style={HERO_WRAP}>
-      {/* Photo — Unsplash */}
       <img
-        src="https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=468&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+        src="https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=1600&auto=format&fit=crop"
         alt="Container terminal"
         style={HERO_IMG}
       />
-      {/* Gradient overlay — lighter so more of the photo shows through */}
       <div style={HERO_GRADIENT} />
-      {/* Navy tint */}
       <div style={HERO_TINT} />
-
-      {/* Photo credit */}
       <span style={HERO_CREDIT}>Photo: Unsplash</span>
 
-      {/* Text */}
       <div style={HERO_TEXT}>
         <p style={EYEBROW}>Tunis-Goulette terminal · Manual entry</p>
         <h1 style={H1}>Add a container</h1>
         <p style={SUB}>
           Enter a container exactly as it would appear in your tracking sheet —
-          one container, its agent, expected dates, and every groupage inside it.
+          one container, its route and dates, and every groupage inside it.
         </p>
       </div>
 
-      {/* Back button sits over the photo, like the old in-header version */}
       <button className="pva-back" onClick={() => window.history.back()} style={HERO_BACK}>
         <ArrowLeft size={13} aria-hidden="true" /> Back
       </button>
@@ -170,14 +196,20 @@ function Hero() {
 export default function AddEntry() {
   const navigate = useNavigate();
 
+  // ── Container-level fields ──
   const [containerNumber, setContainerNumber] = useState("");
   const [agent, setAgent] = useState("");
-  const [origin, setOrigin] = useState("");
-  const [arrivalPort, setArrivalPort] = useState("");
+  const [origin, setOrigin] = useState("");          // POL
+  const [arrivalPorts, setArrivalPorts] = useState([]); // POD — can be multiple
+  const [arrivalPortInput, setArrivalPortInput] = useState("");
   const [carrier, setCarrier] = useState("");
-  const [eta, setEta] = useState("");
+  const [embarquementDate, setEmbarquementDate] = useState("");
+  const [eta, setEta] = useState("");                // Date d'arrivée Tunis
   const [etd, setEtd] = useState("");
+
+  // ── Groupage-level fields ──
   const [groupages, setGroupages] = useState([newGroupage()]);
+
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -185,20 +217,21 @@ export default function AddEntry() {
     setGroupages(gs => gs.map(g => g.id === id ? { ...g, [field]: value } : g));
   };
 
-  const addGroupage = () => {
-    setGroupages(gs => [...gs, newGroupage()]);
-  };
+  const addGroupage = () => setGroupages(gs => [...gs, newGroupage()]);
+  const removeGroupage = (id) => setGroupages(gs => gs.length > 1 ? gs.filter(g => g.id !== id) : gs);
 
-  const removeGroupage = (id) => {
-    setGroupages(gs => gs.length > 1 ? gs.filter(g => g.id !== id) : gs);
+  const addArrivalPort = (port) => {
+    if (port && !arrivalPorts.includes(port)) setArrivalPorts(p => [...p, port]);
+    setArrivalPortInput("");
   };
+  const removeArrivalPort = (port) => setArrivalPorts(p => p.filter(x => x !== port));
 
   const validate = () => {
     const e = {};
     if (!containerNumber.trim()) e.containerNumber = "Container number is required";
     if (!agent.trim()) e.agent = "Enter the responsible agent";
-    if (!arrivalPort.trim()) e.arrivalPort = "Arrival port is required";
-    if (!eta) e.eta = "Expected arrival date is required";
+    if (arrivalPorts.length === 0) e.arrivalPort = "Add at least one arrival port (POD)";
+    if (!eta) e.eta = "Expected arrival date (Tunis) is required";
     const hasAtLeastOneGroupage = groupages.some(g => g.supplier.trim() && g.client.trim());
     if (!hasAtLeastOneGroupage) e.groupages = "Add at least one groupage with a supplier and client";
     return e;
@@ -213,10 +246,11 @@ export default function AddEntry() {
     const entry = {
       number: containerNumber.trim(),
       agent: agent.trim(),
-      origin: origin || "—",
-      destination: arrivalPort.trim(),
+      origin: origin || "—",          // POL
+      destination: arrivalPorts.join(" / "), // POD, joined like their sheet
       carrier: carrier.trim() || "—",
       status: "in_transit",
+      embarquementDate: embarquementDate || null,
       eta,
       etd: etd || null,
       needsAttention: false,
@@ -237,14 +271,18 @@ export default function AddEntry() {
     setContainerNumber("");
     setAgent("");
     setOrigin("");
-    setArrivalPort("");
+    setArrivalPorts([]);
+    setArrivalPortInput("");
     setCarrier("");
+    setEmbarquementDate("");
     setEta("");
     setEtd("");
     setGroupages([newGroupage()]);
     setErrors({});
     setSubmitted(false);
   };
+
+  const validGroupageCount = groupages.filter(g => g.supplier.trim() && g.client.trim()).length;
 
   if (submitted) {
     return (
@@ -255,8 +293,7 @@ export default function AddEntry() {
           <h1 style={SUCCESS_H1}>Container added</h1>
           <p style={SUCCESS_SUB}>
             <span style={{ fontFamily: MONO, fontWeight: 600, color: "#1C2B33" }}>{containerNumber}</span>
-            {" "}has been saved with {groupages.filter(g => g.supplier.trim() && g.client.trim()).length} groupage
-            {groupages.filter(g => g.supplier.trim() && g.client.trim()).length !== 1 ? "s" : ""}.
+            {" "}has been saved with {validGroupageCount} groupage{validGroupageCount !== 1 ? "s" : ""}.
           </p>
           <div style={SUCCESS_ACTIONS}>
             <button className="pva-btn-secondary" onClick={resetForm}>Add another container</button>
@@ -324,7 +361,7 @@ export default function AddEntry() {
 
             <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
-                <label style={LABEL}>Origin port</label>
+                <label style={LABEL}>POL — port of loading</label>
                 <AutocompleteInput
                   value={origin}
                   onChange={setOrigin}
@@ -335,20 +372,65 @@ export default function AddEntry() {
               </div>
 
               <div style={FIELD}>
-                <label style={LABEL}>Arrival port <span style={REQUIRED}>*</span></label>
-                <AutocompleteInput
-                  value={arrivalPort}
-                  onChange={setArrivalPort}
-                  options={ARRIVAL_PORTS}
-                  placeholder="Type arrival port…"
-                  icon={Anchor}
-                  error={errors.arrivalPort}
-                />
+                <label style={LABEL}>POD — port(s) of discharge <span style={REQUIRED}>*</span></label>
+                <div style={AC_WRAP}>
+                  <div style={SELECT_WRAP}>
+                    <Anchor size={14} style={SELECT_ICON} />
+                    <input
+                      type="text"
+                      value={arrivalPortInput}
+                      onChange={e => setArrivalPortInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); addArrivalPort(arrivalPortInput.trim()); }
+                      }}
+                      placeholder="Type a port, press Enter…"
+                      style={{ ...SELECT, paddingLeft: 38, ...(errors.arrivalPort ? INPUT_ERROR : {}) }}
+                      className="pva-input"
+                    />
+                  </div>
+                  {arrivalPortInput.trim() && (
+                    <ul style={AC_LIST} role="listbox">
+                      {ARRIVAL_PORTS
+                        .filter(p => p.toLowerCase().includes(arrivalPortInput.trim().toLowerCase()) && !arrivalPorts.includes(p))
+                        .slice(0, 6)
+                        .map(p => (
+                          <li key={p} style={AC_ITEM} onMouseDown={() => addArrivalPort(p)}>{p}</li>
+                        ))}
+                    </ul>
+                  )}
+                </div>
+                {arrivalPorts.length > 0 && (
+                  <div style={PORT_CHIPS}>
+                    {arrivalPorts.map(p => (
+                      <span key={p} style={PORT_CHIP}>
+                        {p}
+                        <button type="button" onClick={() => removeArrivalPort(p)} style={PORT_CHIP_X} aria-label={`Remove ${p}`}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {errors.arrivalPort && <span style={ERROR_TEXT}>{errors.arrivalPort}</span>}
               </div>
 
               <div style={FIELD}>
-                <label style={LABEL}>Expected arrival (ETA) <span style={REQUIRED}>*</span></label>
+                <label style={LABEL}>Date d'embarquement</label>
+                <div style={SELECT_WRAP}>
+                  <Calendar size={14} style={SELECT_ICON} />
+                  <input
+                    type="date"
+                    value={embarquementDate}
+                    onChange={e => setEmbarquementDate(e.target.value)}
+                    style={SELECT}
+                    className="pva-input"
+                  />
+                </div>
+                <span style={HELP_TEXT}>Date the container was loaded onto the vessel.</span>
+              </div>
+            </div>
+
+            <div style={FIELD_ROW_3} className="pva-field-row-3">
+              <div style={FIELD}>
+                <label style={LABEL}>Date d'arrivée Tunis (ETA) <span style={REQUIRED}>*</span></label>
                 <div style={SELECT_WRAP}>
                   <Calendar size={14} style={SELECT_ICON} />
                   <input
@@ -360,10 +442,9 @@ export default function AddEntry() {
                   />
                 </div>
                 {errors.eta && <span style={ERROR_TEXT}>{errors.eta}</span>}
+                <span style={HELP_TEXT}>This is the date you'll get reminded to confirm — your "rappel".</span>
               </div>
-            </div>
 
-            <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
                 <label style={LABEL}>
                   Expected departure (ETD)
@@ -381,7 +462,6 @@ export default function AddEntry() {
                 </div>
                 <span style={HELP_TEXT}>Used to remind you to confirm the ship has left as agreed.</span>
               </div>
-              <div style={FIELD} />
               <div style={FIELD} />
             </div>
           </div>
@@ -403,56 +483,147 @@ export default function AddEntry() {
 
           <div style={GROUPAGE_LIST}>
             {groupages.map((g, i) => (
-              <div key={g.id} style={GROUPAGE_ROW}>
-                <div style={GROUPAGE_NUM}>{String(i + 1).padStart(2, "0")}</div>
-
-                <div style={GROUPAGE_FIELDS} className="pva-groupage-fields">
-                  <input
-                    type="text"
-                    value={g.supplier}
-                    onChange={e => updateGroupage(g.id, "supplier", e.target.value)}
-                    placeholder="Supplier (fournisseur)"
-                    style={GROUPAGE_INPUT}
-                    className="pva-input"
-                  />
-                  <input
-                    type="text"
-                    value={g.client}
-                    onChange={e => updateGroupage(g.id, "client", e.target.value)}
-                    placeholder="Client"
-                    style={GROUPAGE_INPUT}
-                    className="pva-input"
-                  />
-                  <input
-                    type="text"
-                    value={g.achat}
-                    onChange={e => updateGroupage(g.id, "achat", e.target.value)}
-                    placeholder="Achat (optional)"
-                    style={{ ...GROUPAGE_INPUT, ...GROUPAGE_INPUT_SM }}
-                    className="pva-input"
-                  />
-                  <input
-                    type="text"
-                    value={g.vente}
-                    onChange={e => updateGroupage(g.id, "vente", e.target.value)}
-                    placeholder="Vente (optional)"
-                    style={{ ...GROUPAGE_INPUT, ...GROUPAGE_INPUT_SM }}
-                    className="pva-input"
-                  />
+              <div key={g.id} style={GROUPAGE_CARD}>
+                <div style={GROUPAGE_CARD_HEAD}>
+                  <span style={GROUPAGE_NUM_BADGE}>{String(i + 1).padStart(2, "0")}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeGroupage(g.id)}
+                    className="pva-remove-btn"
+                    disabled={groupages.length === 1}
+                    aria-label="Remove groupage"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => removeGroupage(g.id)}
-                  className="pva-remove-btn"
-                  disabled={groupages.length === 1}
-                  aria-label="Remove groupage"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {/* Row 1 — identity */}
+                <div style={GROUPAGE_SUBROW} className="pva-groupage-fields">
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><Package size={11} /> Fournisseur <span style={REQUIRED}>*</span></label>
+                    <input
+                      type="text"
+                      value={g.supplier}
+                      onChange={e => updateGroupage(g.id, "supplier", e.target.value)}
+                      placeholder="Supplier name"
+                      style={GROUPAGE_INPUT}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><User size={11} /> Client <span style={REQUIRED}>*</span></label>
+                    <input
+                      type="text"
+                      value={g.client}
+                      onChange={e => updateGroupage(g.id, "client", e.target.value)}
+                      placeholder="Client name"
+                      style={GROUPAGE_INPUT}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><FileSignature size={11} /> Référence du client</label>
+                    <input
+                      type="text"
+                      value={g.clientRef}
+                      onChange={e => updateGroupage(g.id, "clientRef", e.target.value)}
+                      placeholder="Client reference"
+                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
+                      className="pva-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2 — shipper / booking / pickup */}
+                <div style={GROUPAGE_SUBROW} className="pva-groupage-fields">
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><Ship size={11} /> Shipper's name</label>
+                    <input
+                      type="text"
+                      list="pva-shippers"
+                      value={g.shipper}
+                      onChange={e => updateGroupage(g.id, "shipper", e.target.value)}
+                      placeholder="Shipper"
+                      style={GROUPAGE_INPUT}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><Calendar size={11} /> Booking date</label>
+                    <input
+                      type="date"
+                      value={g.bookingDate}
+                      onChange={e => updateGroupage(g.id, "bookingDate", e.target.value)}
+                      style={GROUPAGE_INPUT}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><Calendar size={11} /> Date d'enlèvement</label>
+                    <input
+                      type="date"
+                      value={g.pickupDate}
+                      onChange={e => updateGroupage(g.id, "pickupDate", e.target.value)}
+                      style={GROUPAGE_INPUT}
+                      className="pva-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3 — weight / packages / achat / vente */}
+                <div style={GROUPAGE_SUBROW_4} className="pva-groupage-fields-4">
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><Weight size={11} /> Poids (kg)</label>
+                    <input
+                      type="text"
+                      value={g.weight}
+                      onChange={e => updateGroupage(g.id, "weight", e.target.value)}
+                      placeholder="e.g. 1240"
+                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}><Boxes size={11} /> Nombre de colis</label>
+                    <input
+                      type="text"
+                      value={g.packages}
+                      onChange={e => updateGroupage(g.id, "packages", e.target.value)}
+                      placeholder="e.g. 36"
+                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}>Achat <span style={OPTIONAL_TAG_SM}>optional</span></label>
+                    <input
+                      type="text"
+                      value={g.achat}
+                      onChange={e => updateGroupage(g.id, "achat", e.target.value)}
+                      placeholder="—"
+                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
+                      className="pva-input"
+                    />
+                  </div>
+                  <div style={GFIELD}>
+                    <label style={GLABEL}>Vente <span style={OPTIONAL_TAG_SM}>optional</span></label>
+                    <input
+                      type="text"
+                      value={g.vente}
+                      onChange={e => updateGroupage(g.id, "vente", e.target.value)}
+                      placeholder="—"
+                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
+                      className="pva-input"
+                    />
+                  </div>
+                </div>
               </div>
             ))}
           </div>
+
+          <datalist id="pva-shippers">
+            {SHIPPERS.map(s => <option key={s} value={s} />)}
+          </datalist>
 
           <button type="button" onClick={addGroupage} className="pva-add-btn">
             <Plus size={15} /> Add groupage
@@ -477,7 +648,6 @@ export default function AddEntry() {
 /* ── Inline style objects ── */
 const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
 
-/* Hero — mirrors the Arrivals page Hero exactly (560px, photo + gradient + tint) */
 const HERO_WRAP = { position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
 const HERO_IMG = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%" };
 const HERO_GRADIENT = { position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)" };
@@ -498,12 +668,12 @@ const CARD_TITLE = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize:
 const CARD_COUNT = { marginLeft: "auto", fontFamily: MONO, fontSize: "0.7rem", fontWeight: 700, color: "#185FA5", background: "#E6F1FB", padding: "3px 9px", borderRadius: 20 };
 const CARD_BODY = { padding: "22px" };
 
-const FIELD_ROW = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 };
 const FIELD_ROW_3 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 18, marginBottom: 18 };
 const FIELD = { display: "flex", flexDirection: "column", gap: 6 };
 const LABEL = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "#6E7F87", display: "flex", alignItems: "center", gap: 6 };
 const REQUIRED = { color: "#D6492F" };
 const OPTIONAL_TAG = { fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "#A8A39A", background: "rgba(11,42,61,0.06)", padding: "2px 7px", borderRadius: 10, marginLeft: 6 };
+const OPTIONAL_TAG_SM = { ...OPTIONAL_TAG, fontSize: "0.54rem" };
 const HELP_TEXT = { fontSize: "0.72rem", color: "#A8A39A", lineHeight: 1.4 };
 
 const INPUT = { width: "100%", padding: "11px 14px", fontSize: "0.9rem", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none" };
@@ -512,7 +682,6 @@ const ERROR_TEXT = { fontSize: "0.72rem", color: "#D6492F", fontFamily: MONO };
 
 const SELECT_WRAP = { position: "relative", display: "flex", alignItems: "center" };
 const SELECT_ICON = { position: "absolute", left: 14, color: "#6E7F87", pointerEvents: "none" };
-const SELECT_CHEVRON = { position: "absolute", right: 14, color: "#6E7F87", pointerEvents: "none" };
 const SELECT = { width: "100%", padding: "11px 14px 11px 38px", fontSize: "0.9rem", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none", appearance: "none", cursor: "pointer" };
 
 const AC_WRAP = { position: "relative" };
@@ -520,13 +689,22 @@ const AC_LIST = { position: "absolute", top: "calc(100% + 4px)", left: 0, right:
 const AC_ITEM = { padding: "9px 12px", fontSize: "0.85rem", color: "#1C2B33", borderRadius: 6, cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif" };
 const AC_ITEM_ACTIVE = { background: "rgba(24,95,165,0.08)", color: "#0B2A3D" };
 
+const PORT_CHIPS = { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 };
+const PORT_CHIP = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 6px 5px 11px", background: "#E6F1FB", color: "#0c447c", borderRadius: 20, fontSize: "0.78rem", fontFamily: MONO };
+const PORT_CHIP_X = { background: "rgba(12,68,124,0.12)", border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#0c447c", fontSize: 13, lineHeight: 1, padding: 0 };
+
 const GROUPAGE_ERROR_BANNER = { display: "flex", alignItems: "center", gap: 8, margin: "16px 22px 0", padding: "10px 14px", background: "#FAEEDA", border: "1px solid rgba(201,145,43,0.35)", borderRadius: 8, color: "#854F0B", fontSize: "0.78rem" };
 const GROUPAGE_LIST = { padding: "18px 22px 6px" };
-const GROUPAGE_ROW = { display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 };
-const GROUPAGE_NUM = { fontFamily: MONO, fontSize: "0.72rem", fontWeight: 700, color: "#A8A39A", padding: "12px 0 0", flexShrink: 0, width: 20 };
-const GROUPAGE_FIELDS = { flex: 1, display: "grid", gridTemplateColumns: "1.6fr 1.6fr 1fr 1fr", gap: 10 };
-const GROUPAGE_INPUT = { width: "100%", padding: "10px 12px", fontSize: "0.84rem", border: "1px solid rgba(11,42,61,0.16)", borderRadius: 7, background: "#FAF8F2", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none" };
-const GROUPAGE_INPUT_SM = { fontFamily: MONO, fontSize: "0.8rem" };
+
+const GROUPAGE_CARD = { border: "1px solid rgba(11,42,61,0.12)", borderRadius: 10, background: "#FAF8F2", padding: "14px 16px", marginBottom: 14 };
+const GROUPAGE_CARD_HEAD = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 };
+const GROUPAGE_NUM_BADGE = { fontFamily: MONO, fontSize: "0.68rem", fontWeight: 700, color: "#185FA5", background: "#E6F1FB", padding: "3px 10px", borderRadius: 20 };
+
+const GROUPAGE_SUBROW = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 };
+const GROUPAGE_SUBROW_4 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 };
+const GFIELD = { display: "flex", flexDirection: "column", gap: 4 };
+const GLABEL = { fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", textTransform: "uppercase", color: "#8a8680", display: "flex", alignItems: "center", gap: 5 };
+const GROUPAGE_INPUT = { width: "100%", padding: "9px 11px", fontSize: "0.82rem", border: "1px solid rgba(11,42,61,0.16)", borderRadius: 6, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none" };
 
 const SUBMIT_ROW = { display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 };
 
@@ -536,7 +714,7 @@ const SUCCESS_H1 = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize:
 const SUCCESS_SUB = { fontSize: "0.9rem", color: "#6E7F87", lineHeight: 1.6, marginBottom: 28 };
 const SUCCESS_ACTIONS = { display: "flex", gap: 12, justifyContent: "center" };
 
-/* ── CSS for hover/focus states + buttons ── */
+/* ── CSS for hover/focus states + buttons + responsive ── */
 const CSS = `
 .pva-back {
   display: inline-flex; align-items: center; gap: 6px;
@@ -548,7 +726,7 @@ const CSS = `
 }
 .pva-back:hover { background: rgba(11,42,61,0.55); color: #DCE6EA; }
 
-.pva-input:focus, .pva-select:focus {
+.pva-input:focus {
   border-color: #185FA5 !important;
   box-shadow: 0 0 0 3px rgba(24,95,165,0.12);
 }
@@ -566,7 +744,7 @@ const CSS = `
 .pva-add-btn:hover { background: rgba(47,126,108,0.06); border-color: rgba(47,126,108,0.7); }
 
 .pva-remove-btn {
-  flex-shrink: 0; padding: 10px; margin-top: 1px;
+  flex-shrink: 0; padding: 7px; margin-top: 0;
   background: none; border: none; cursor: pointer;
   color: #C2BDB1; border-radius: 7px; transition: background .15s, color .15s;
 }
@@ -591,10 +769,12 @@ const CSS = `
 
 @media (max-width: 900px) {
   .pva-field-row-3 { grid-template-columns: 1fr 1fr !important; }
+  .pva-groupage-fields-4 { grid-template-columns: 1fr 1fr !important; }
 }
 
 @media (max-width: 640px) {
   .pva-groupage-fields { grid-template-columns: 1fr !important; }
+  .pva-groupage-fields-4 { grid-template-columns: 1fr !important; }
   .pva-field-row-3 { grid-template-columns: 1fr !important; }
 }
 `;
