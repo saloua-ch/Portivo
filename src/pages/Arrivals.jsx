@@ -14,6 +14,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { containers } from "../data/mockData";
+import { setAlerts } from "../state/alerts";
 import {
   Ship, ClipboardList, Anchor, CheckCircle,
   AlertCircle, AlertTriangle, Clock, Mail, User,
@@ -415,6 +416,29 @@ export default function Arrivals() {
     .map(container => ({ container, followUp: getFollowUp(container, verifiedMap) }))
     .filter(({ followUp }) => followUp !== null)
     .sort((a, b) => a.followUp.days - b.followUp.days);
+
+  // ── Publish to the shared alerts store whenever the follow-up list changes ──
+  // This is what lets the TopNav bell light up from any page, not just
+  // while Arrivals itself is mounted. See src/state/alerts.js.
+  useEffect(() => {
+    setAlerts({
+      count: followUps.length,
+      items: followUps.map(({ container, followUp }) => ({
+        id: container.id,
+        number: container.number,
+        type: followUp.type,
+        severity: followUp.days < 0 ? "overdue" : "due_today",
+        message:
+          followUp.type === "etd"
+            ? (followUp.days < 0
+                ? `Departure overdue by ${Math.abs(followUp.days)}d`
+                : "Departure due today")
+            : (followUp.days < 0
+                ? `Arrival overdue by ${Math.abs(followUp.days)}d`
+                : "Arrival due today"),
+      })),
+    });
+  }, [followUps]);
 
   const weekCount     = containers.filter(c => { const d = diffDays(c.eta); return d >= 0 && d <= 7; }).length;
   const nextWeekCount = containers.filter(c => { const d = diffDays(c.eta); return d > 7 && d <= 14; }).length;
