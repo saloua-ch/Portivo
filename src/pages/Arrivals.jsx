@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { containers } from "../data/mockData";
 import {
   Ship, ClipboardList, Anchor, CheckCircle,
-  AlertCircle, AlertTriangle, Clock,
+  AlertCircle, AlertTriangle, Clock, Mail, User,
 } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,6 +47,30 @@ function groupByETA(list) {
   const g = {};
   list.forEach(c => { if (!g[c.eta]) g[c.eta] = []; g[c.eta].push(c); });
   return Object.entries(g).sort(([a], [b]) => new Date(a) - new Date(b));
+}
+
+/**
+ * Decides whether a container needs a follow-up reminder, and for which date.
+ * Priority: an overdue/due-today ETD (departure) takes precedence over ETA,
+ * since "did it leave as agreed" is usually the more time-sensitive check
+ * once a container has a departure date at all.
+ */
+function getFollowUp(container, verifiedMap) {
+  if (container.status === "delivered") return null;
+
+  const etdDays = container.etd ? diffDays(container.etd) : null;
+  const etaDays = diffDays(container.eta);
+
+  const etdVerified = verifiedMap[`${container.id}-etd`];
+  const etaVerified = verifiedMap[`${container.id}-eta`];
+
+  if (etdDays !== null && etdDays <= 0 && !etdVerified) {
+    return { type: "etd", days: etdDays, date: container.etd };
+  }
+  if (etaDays <= 0 && !etaVerified) {
+    return { type: "eta", days: etaDays, date: container.eta };
+  }
+  return null;
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -189,7 +213,110 @@ function DayGroup({ date, items, onCardClick }) {
   );
 }
 
-// ─── Hero ─────────────────────────────────────────────────────────────────────
+// ─── Follow-up reminder banner ───────────────────────────────────────────────
+
+function FollowUpBanner({ container, followUp, onVerify, onClick }) {
+  const isOverdue = followUp.days < 0;
+  const dateLabel = followUp.type === "etd" ? "departure" : "arrival";
+  const verb = followUp.type === "etd" ? "left" : "arrived";
+
+  const message = isOverdue
+    ? `Expected ${dateLabel} was ${Math.abs(followUp.days)} day${Math.abs(followUp.days) !== 1 ? "s" : ""} ago — confirm it has ${verb} and email the agent.`
+    : `Expected ${dateLabel} is today — confirm it has ${verb} and email the agent.`;
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 14,
+      padding: "14px 18px", marginBottom: 10,
+      background: isOverdue ? "#FBEAE4" : "#FAEEDA",
+      border: `1px solid ${isOverdue ? "rgba(214,73,47,.28)" : "rgba(201,145,43,.3)"}`,
+      borderRadius: 8,
+    }}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: isOverdue ? "rgba(214,73,47,.12)" : "rgba(201,145,43,.16)",
+        color: isOverdue ? "#D6492F" : "#854F0B",
+      }}>
+        <Mail size={16} />
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={onClick}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: 13, color: "#1C2B33" }}>
+            {container.number}
+          </span>
+          <span style={{ fontSize: 12.5, color: isOverdue ? "#a13a26" : "#6b4a0a" }}>
+            {message}
+          </span>
+        </div>
+      </div>
+
+      <button
+        onClick={() => onVerify(container.id, followUp.type)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
+          padding: "8px 14px", borderRadius: 7, border: "none", cursor: "pointer",
+          background: "#0B2A3D", color: "#DCE6EA",
+          fontFamily: MONO, fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600,
+        }}
+      >
+        <CheckCircle size={13} /> Mark confirmed
+      </button>
+    </div>
+  );
+}
+
+function VerifiedNote({ entry }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "9px 16px", marginBottom: 8,
+      background: "rgba(47,126,108,.06)", border: "1px solid rgba(47,126,108,.16)",
+      borderRadius: 8, fontSize: 12,
+    }}>
+      <CheckCircle size={13} style={{ color: "#2F7E6C", flexShrink: 0 }} />
+      <span style={{ fontFamily: MONO, fontWeight: 700, color: "#1C2B33" }}>{entry.number}</span>
+      <span style={{ color: "#3B6D11" }}>
+        {entry.label} confirmed by <b>{entry.by}</b> · {entry.when}
+      </span>
+    </div>
+  );
+}
+
+function FollowUpSection({ items, verifiedMap, recentlyVerified, onVerify, onClick }) {
+  if (items.length === 0 && recentlyVerified.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <AlertCircle size={14} style={{ color: items.length > 0 ? "#D6492F" : "#2F7E6C" }} />
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "#1C2B33", fontWeight: 600 }}>
+          Needs follow-up
+        </span>
+        {items.length > 0 && (
+          <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 2, background: "#F8DDD5", color: "#D6492F" }}>
+            {items.length}
+          </span>
+        )}
+      </div>
+
+      {items.map(({ container, followUp }) => (
+        <FollowUpBanner
+          key={`${container.id}-${followUp.type}`}
+          container={container}
+          followUp={followUp}
+          onVerify={onVerify}
+          onClick={() => onClick(container.id)}
+        />
+      ))}
+
+      {recentlyVerified.map(entry => (
+        <VerifiedNote key={`${entry.id}-${entry.type}`} entry={entry} />
+      ))}
+    </div>
+  );
+}
 
 function Hero({ weekCount, customsCount, overdueCount }) {
   const kpis = [
@@ -203,6 +330,7 @@ function Hero({ weekCount, customsCount, overdueCount }) {
       {/* Photo — Maersk & MSC container ships at dock, by Dominik Lückmann / Unsplash */}
       <img
         src="https://images.unsplash.com/photo-1595587637401-83ff822bd63e?q=80&w=901&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
+       
         alt="Maersk and MSC container ships docked at port"
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%" }}
       />
@@ -254,9 +382,39 @@ export default function Arrivals() {
   const [activeTab, setActiveTab]  = useState("this_week");
   const [syncTime, setSyncTime]    = useState("");
 
+  // ── Follow-up verification state ──
+  // Keyed as `${containerId}-eta` / `${containerId}-etd`.
+  // TODO: replace with your real persistence layer (API call or mockData
+  // mutation) so verification survives a page refresh and is shared across
+  // users — right now this resets on reload, which is fine for a first pass.
+  const [verifiedMap, setVerifiedMap] = useState({});
+  const [recentlyVerified, setRecentlyVerified] = useState([]);
+
   useEffect(() => {
     setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
   }, []);
+
+  const handleVerify = (containerId, type) => {
+    const container = containers.find(c => c.id === containerId);
+    const key = `${containerId}-${type}`;
+    setVerifiedMap(m => ({ ...m, [key]: true }));
+    setRecentlyVerified(list => [
+      {
+        id: containerId,
+        type,
+        number: container.number,
+        label: type === "etd" ? "Departure" : "Arrival",
+        by: "You", // TODO: swap for the logged-in user's name once auth exists
+        when: new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+      },
+      ...list,
+    ]);
+  };
+
+  const followUps = containers
+    .map(container => ({ container, followUp: getFollowUp(container, verifiedMap) }))
+    .filter(({ followUp }) => followUp !== null)
+    .sort((a, b) => a.followUp.days - b.followUp.days);
 
   const weekCount     = containers.filter(c => { const d = diffDays(c.eta); return d >= 0 && d <= 7; }).length;
   const nextWeekCount = containers.filter(c => { const d = diffDays(c.eta); return d > 7 && d <= 14; }).length;
@@ -334,6 +492,15 @@ export default function Arrivals() {
               );
             })}
           </div>
+
+          {/* Needs follow-up */}
+          <FollowUpSection
+            items={followUps}
+            verifiedMap={verifiedMap}
+            recentlyVerified={recentlyVerified}
+            onVerify={handleVerify}
+            onClick={id => navigate(`/containers/${id}`)}
+          />
 
           {/* Content */}
           {grouped.length === 0 ? (
