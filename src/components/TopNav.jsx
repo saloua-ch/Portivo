@@ -77,6 +77,8 @@ export default function TopNav() {
         <NavLink to="/import" className={navClass}>Import</NavLink>
         <NavLink to="/analytics" className={navClass}>Analytics</NavLink>
         <NavLink to="/AddEntry" className={navClass}>Add Entry</NavLink>
+        <NavLink to="/Archives" className={navClass}>Archives</NavLink>
+
       </nav>
 
       <div className="pv-topnav-right">

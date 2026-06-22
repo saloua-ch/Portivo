@@ -111,6 +111,21 @@ const IconPlus = (props) => (
     </g>
   </svg>
 );
+const IconArchive = (props) => (
+  <svg viewBox="0 0 24 24" className="icon" {...props}>
+    <g
+      stroke="currentColor"
+      strokeWidth="1.4"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3.5" width="18" height="5" rx="1" />
+      <path d="M4.5 8.5V19a1.5 1.5 0 0 0 1.5 1.5h12A1.5 1.5 0 0 0 19.5 19V8.5" />
+      <path d="M9.5 12.5h5" />
+    </g>
+  </svg>
+);
 
 const SHIP_PATH = "M-8,-5 9,0 -8,5 -3,0Z";
 
@@ -180,6 +195,16 @@ const PORTS_OF_CALL = [
       "Log a new shipment by hand — container number, route, carrier, and status — straight into the manifest.",
     status: "Manual log entry",
     href: "/AddEntry",
+  },
+  {
+    berth: "Berth 07 — Archives",
+    accent: "slate",
+    Icon: IconArchive ,
+    title: "Archives",
+    description:
+      "Browse the full historical record — every container on file, grouped by arrival month, searchable by year.",
+    status: "Historical record",
+    href: "/Archives",
   },
 ];
 
@@ -304,6 +329,7 @@ export default function Home() {
             <Link to="/import">Import</Link>
             <Link to="/analytics">Analytics</Link>
             <Link to="/AddEntry">Add Entry</Link>
+            <Link to="/Archives">Archives</Link>
           </nav>
           <span className="sync">
             <span className="sync-dot" />

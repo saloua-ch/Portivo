@@ -9,7 +9,6 @@ import { useEffect, useRef } from "react";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 
-// ─── Palette ─────────────────────────────────────────────────────────────────
 const C = {
   ink:    "#0B2A3D",
   paper:  "#E2DCCB",
@@ -23,7 +22,6 @@ const C = {
   tonInk: "#DCE6EA",
 };
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
 const MONTHS  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
 const VOLUMES = [4, 6, 5, 8, 7, 12];
 const TREND   = [31, 29, 30, 28, 27, 24];
@@ -51,54 +49,33 @@ const EVENTS = [
 ];
 
 const KPIS = [
-  { label: "Containers on file",   val: "28",  delta: "↑ 4 this month",    up: true,  accent: C.teal  },
-  { label: "Avg. transit time",    val: "24d", delta: "↓ 3d vs last month", up: true,  accent: C.amber },
-  { label: "Customs delays",       val: "02",  delta: "↑ 1 vs last month", up: false, accent: C.coral },
-  { label: "Delivered this month", val: "07",  delta: "↑ 2 vs prior",      up: true,  accent: C.tonInk},
+  { label: "Containers on file",   val: "28",  delta: "↑ 4 this month",     up: true,  accent: C.teal   },
+  { label: "Avg. transit time",    val: "24d", delta: "↓ 3d vs last month", up: true,  accent: C.amber  },
+  { label: "Customs delays",       val: "02",  delta: "↑ 1 vs last month",  up: false, accent: C.coral  },
+  { label: "Delivered this month", val: "07",  delta: "↑ 2 vs prior",       up: true,  accent: C.tonInk },
 ];
 
-// ─── Shared chart defaults ────────────────────────────────────────────────────
 const MONO = "'IBM Plex Mono', monospace";
 const tickFont = { size: 10, family: MONO };
 
-// ─── useChart hook ────────────────────────────────────────────────────────────
 function useChart(makeConfig) {
   const canvasRef = useRef(null);
   const chartRef  = useRef(null);
-
   useEffect(() => {
     if (!canvasRef.current) return;
-    // destroy previous instance if hot-reload
-    if (chartRef.current) {
-      chartRef.current.destroy();
-      chartRef.current = null;
-    }
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
     chartRef.current = new Chart(canvasRef.current, makeConfig());
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
-      }
-    };
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   return canvasRef;
 }
 
-// ─── Small reusable pieces ────────────────────────────────────────────────────
-function mono(extra) {
-  return { fontFamily: MONO, ...extra };
-}
+function mono(extra) { return { fontFamily: MONO, ...extra }; }
 
 function Card({ children, style }) {
   return (
-    <div style={{
-      background: C.paper,
-      border: "1px solid rgba(11,42,61,.14)",
-      padding: "28px 26px 24px",
-      ...style,
-    }}>
+    <div style={{ background: C.paper, border: "1px solid rgba(11,42,61,.14)", padding: "28px 26px 24px", ...style }}>
       {children}
     </div>
   );
@@ -106,10 +83,7 @@ function Card({ children, style }) {
 
 function CardHead({ title, sub, iconBg, iconEl }) {
   return (
-    <div style={{
-      display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-      marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(11,42,61,.1)",
-    }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid rgba(11,42,61,.1)" }}>
       <div>
         <p style={{ fontFamily: "'Fraunces',serif", fontWeight: 500, fontSize: "1.1rem", color: "#1C2B33", marginBottom: 3 }}>{title}</p>
         <p style={mono({ fontSize: 9, letterSpacing: ".1em", textTransform: "uppercase", color: C.muted })}>{sub}</p>
@@ -121,11 +95,8 @@ function CardHead({ title, sub, iconBg, iconEl }) {
   );
 }
 
-// ─── SVG icon helpers ─────────────────────────────────────────────────────────
 const SvgWrap = ({ children, color, size = 16 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke={color || "currentColor"} strokeWidth="1.6"
-    strokeLinecap="round" strokeLinejoin="round">
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     {children}
   </svg>
 );
@@ -142,23 +113,17 @@ const IImport = () => <SvgWrap><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-
 
 const EVENT_ICONS = { ship: <IShip />, alert: <IAlert />, check: <ICheck />, import: <IImport />, clock: <IClock c="currentColor" /> };
 
-// ─── Hero ─────────────────────────────────────────────────────────────────────
 function Hero() {
   return (
     <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      {/* Background photo */}
       <img
         src="https://plus.unsplash.com/premium_photo-1754652424539-93fd34c23b1f?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1400&q=80&auto=format&fit=crop"
         alt="Aerial view of a container port terminal"
         onError={e => { e.target.src = "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=1400&q=80&auto=format&fit=crop"; }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%" }}
       />
-      {/* Dark overlay */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.3) 0%, rgba(8,32,48,.6) 50%, rgba(8,32,48,.96) 100%)" }} />
-      {/* Navy tint */}
       <div style={{ position: "absolute", inset: 0, background: "rgba(11,42,61,.25)" }} />
-
-      {/* Text */}
       <div style={{ position: "relative", zIndex: 2, padding: "0 52px" }}>
         <p style={mono({ fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: C.teals, marginBottom: 12 })}>
           Tunis–Goulette Terminal · Fleet Performance
@@ -170,8 +135,6 @@ function Hero() {
           Live metrics from every active route — volumes, transit times, and customs delays in one view.
         </p>
       </div>
-
-      {/* KPI strip */}
       <div style={{ position: "relative", zIndex: 2, display: "grid", gridTemplateColumns: "repeat(4,1fr)", marginTop: 28, borderTop: "1px solid rgba(255,255,255,.1)" }}>
         {KPIS.map((k, i) => (
           <div key={i} style={{ padding: "18px 28px 22px", borderRight: i < 3 ? "1px solid rgba(255,255,255,.08)" : "none", position: "relative" }}>
@@ -186,7 +149,6 @@ function Hero() {
   );
 }
 
-// ─── Bar chart ────────────────────────────────────────────────────────────────
 function BarCard() {
   const ref = useChart(() => ({
     type: "bar",
@@ -196,13 +158,11 @@ function BarCard() {
         data: VOLUMES,
         backgroundColor: VOLUMES.map((_, i) => i === VOLUMES.length - 1 ? C.teal : "rgba(11,42,61,.12)"),
         borderColor:      VOLUMES.map((_, i) => i === VOLUMES.length - 1 ? C.teal : "rgba(11,42,61,.18)"),
-        borderWidth: 1,
-        borderRadius: 2,
+        borderWidth: 1, borderRadius: 2,
       }],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} containers` } } },
       scales: {
         x: { grid: { display: false }, ticks: { font: tickFont, color: C.muted } },
@@ -210,43 +170,27 @@ function BarCard() {
       },
     },
   }));
-
   return (
     <Card>
       <CardHead title="Monthly volume" sub="Containers handled per month, 2026" iconBg="rgba(47,126,108,.12)" iconEl={<IBar c={C.teal} />} />
-      <div style={{ height: 190, position: "relative" }}>
-        <canvas ref={ref} />
-      </div>
+      <div style={{ height: 190, position: "relative" }}><canvas ref={ref} /></div>
     </Card>
   );
 }
 
-// ─── Donut chart ──────────────────────────────────────────────────────────────
 function DonutCard() {
   const ref = useChart(() => ({
     type: "doughnut",
     data: {
       labels: STATUSES.map(s => s.label),
-      datasets: [{
-        data: STATUSES.map(s => s.count),
-        backgroundColor: STATUSES.map(s => s.color),
-        borderWidth: 3,
-        borderColor: C.paper,
-        hoverOffset: 4,
-      }],
+      datasets: [{ data: STATUSES.map(s => s.count), backgroundColor: STATUSES.map(s => s.color), borderWidth: 3, borderColor: C.paper, hoverOffset: 4 }],
     },
-    options: {
-      responsive: false,
-      cutout: "68%",
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${c.raw}` } } },
-    },
+    options: { responsive: false, cutout: "68%", plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${c.raw}` } } } },
   }));
-
   return (
     <Card>
       <CardHead title="Fleet status" sub="Active containers breakdown" iconBg="rgba(214,73,47,.12)" iconEl={<IClock c={C.coral} />} />
       <div style={{ display: "grid", gridTemplateColumns: "148px 1fr", gap: 22, alignItems: "center" }}>
-        {/* Donut */}
         <div style={{ position: "relative", width: 148, height: 148, flexShrink: 0 }}>
           <canvas ref={ref} width={148} height={148} style={{ width: 148, height: 148 }} />
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
@@ -254,7 +198,6 @@ function DonutCard() {
             <span style={mono({ fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, marginTop: 3 })}>Active</span>
           </div>
         </div>
-        {/* Legend */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {STATUSES.map(s => {
             const pct = Math.round((s.count / TOTAL) * 100);
@@ -280,15 +223,12 @@ function DonutCard() {
   );
 }
 
-// ─── Lane performance ─────────────────────────────────────────────────────────
 function LaneCard() {
   const cols = "10px 110px 1fr 56px 66px";
   const thSt = mono({ fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted });
-
   return (
     <Card>
       <CardHead title="Lane performance" sub="Average days in transit · vs prior period" iconBg="rgba(201,145,43,.12)" iconEl={<ITrend c={C.amber} />} />
-      {/* Header row */}
       <div style={{ display: "grid", gridTemplateColumns: cols, gap: 14, paddingBottom: 10, borderBottom: "1px solid rgba(11,42,61,.1)", marginBottom: 2 }}>
         <span /><span style={thSt}>Origin</span><span style={thSt}>Progress</span>
         <span style={{ ...thSt, textAlign: "right" }}>Avg</span>
@@ -314,58 +254,39 @@ function LaneCard() {
   );
 }
 
-// ─── Trend line ───────────────────────────────────────────────────────────────
 function TrendCard() {
   const ref = useChart(() => ({
     type: "line",
     data: {
       labels: MONTHS,
       datasets: [{
-        data: TREND,
-        borderColor: C.teal,
-        borderWidth: 2,
-        pointBackgroundColor: C.teal,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        data: TREND, borderColor: C.teal, borderWidth: 2,
+        pointBackgroundColor: C.teal, pointRadius: 3, pointHoverRadius: 5,
         fill: true,
         backgroundColor: ctx => {
           const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 170);
-          g.addColorStop(0, C.teal + "38");
-          g.addColorStop(1, C.teal + "00");
-          return g;
+          g.addColorStop(0, C.teal + "38"); g.addColorStop(1, C.teal + "00"); return g;
         },
         tension: .35,
       }],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} days avg` } } },
       scales: {
         x: { grid: { display: false }, ticks: { font: tickFont, color: C.muted } },
-        y: {
-          grid: { color: "rgba(11,42,61,.06)" },
-          ticks: { font: tickFont, color: C.muted },
-          border: { display: false },
-          reverse: true,
-          min: 20,
-          max: 36,
-        },
+        y: { grid: { color: "rgba(11,42,61,.06)" }, ticks: { font: tickFont, color: C.muted }, border: { display: false }, reverse: true, min: 20, max: 36 },
       },
     },
   }));
-
   return (
     <Card>
       <CardHead title="Transit trend" sub="6-month rolling average (days)" iconBg="rgba(11,42,61,.08)" iconEl={<ILine c={C.ink} />} />
-      <div style={{ height: 170, position: "relative" }}>
-        <canvas ref={ref} />
-      </div>
+      <div style={{ height: 170, position: "relative" }}><canvas ref={ref} /></div>
     </Card>
   );
 }
 
-// ─── Activity feed ────────────────────────────────────────────────────────────
 function ActivityCard() {
   return (
     <Card>
@@ -388,10 +309,8 @@ function ActivityCard() {
   );
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
 export default function Analytics() {
   const row2 = { display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 20 };
-
   return (
     <div style={{ fontFamily: "'IBM Plex Sans',sans-serif", background: "#ECE7DA", WebkitFontSmoothing: "antialiased" }}>
       <style>{`
@@ -399,29 +318,19 @@ export default function Analytics() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @media (max-width: 860px) { .an-row2 { grid-template-columns: 1fr !important; } }
       `}</style>
-
       <Hero />
-
       <div style={{ padding: "44px 52px", maxWidth: 1280, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
         <div className="an-row2" style={row2}>
           <BarCard />
           <DonutCard />
         </div>
-
         <LaneCard />
-
         <div className="an-row2" style={row2}>
           <TrendCard />
           <ActivityCard />
         </div>
       </div>
-
-      <footer style={{
-        background: C.ink, color: "#6F8B9C",
-        padding: "32px 52px", display: "flex", justifyContent: "space-between",
-        alignItems: "center", flexWrap: "wrap", gap: 16,
-        fontFamily: MONO, fontSize: 10, letterSpacing: ".1em",
-      }}>
+      <footer style={{ background: C.ink, color: "#6F8B9C", padding: "32px 52px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, fontFamily: MONO, fontSize: 10, letterSpacing: ".1em" }}>
         <span style={{ fontFamily: "'Fraunces',serif", fontSize: ".95rem", color: C.tonInk, letterSpacing: ".04em" }}>Portivo</span>
         <span style={{ textTransform: "uppercase" }}>Tunis–Goulette · 36.8°N 10.3°E · Fleet analytics</span>
       </footer>

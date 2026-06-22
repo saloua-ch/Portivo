@@ -1,9 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { containers } from "../data/mockData";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import * as storage from "../api/storage";
 import {
-  ArrowLeft, AlertCircle, AlertTriangle, Package, FileText,
-  Receipt, FileCheck2, CheckCircle, Clock, ClipboardList, Ship,
+  ArrowLeft, AlertCircle, Package, FileText,
+  Receipt, FileCheck2, CheckCircle, Clock, ClipboardList,
   MapPin, Calendar, Layers,
 } from "lucide-react";
 
@@ -31,24 +31,17 @@ function formatDateShort(dateStr) {
   return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-/* ── Mock groupage / document data ── */
-const MOCK_GROUPAGES = [
-  { supplier: "Samsung Display", client: "MediaTech GmbH", reference: "REF-2025-0441", delivered: true },
-  { supplier: "LG Chem Ltd",     client: "Volker Industries", reference: "REF-2025-0442", delivered: false },
-  { supplier: "Hyundai Steel",   client: "Rheinmetall AG",   reference: "REF-2025-0443", delivered: false },
-];
-
 const MOCK_DOCS = [
-  { name: "Bill of Lading",        Icon: FileText,     available: false },
-  { name: "Packing List",          Icon: FileText,     available: true },
-  { name: "Commercial Invoice",    Icon: Receipt,       available: true },
-  { name: "Customs Declaration",   Icon: FileCheck2,    available: false },
+  { name: "Bill of Lading",      Icon: FileText,   available: false },
+  { name: "Packing List",        Icon: FileText,   available: true  },
+  { name: "Commercial Invoice",  Icon: Receipt,    available: true  },
+  { name: "Customs Declaration", Icon: FileCheck2, available: false },
 ];
 
 const DEFAULT_TIMELINE = [
-  { step: "Departed origin port", date: null, done: true },
+  { step: "Departed origin port", date: null, done: true    },
   { step: "In transit",           date: null, current: true },
-  { step: "Arrived destination",  date: null, done: false },
+  { step: "Arrived destination",  date: null, done: false   },
 ];
 
 const MONO = "'IBM Plex Mono', monospace";
@@ -57,8 +50,29 @@ export default function ContainerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("groupages");
+  const [container, setContainer] = useState(null);
+  const [loading, setLoading]     = useState(true);
 
-  const container = containers.find(c => c.id === id);
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const data = await storage.getContainer(id);
+      setContainer(data);
+      setLoading(false);
+    }
+    load();
+    // reload if data changes elsewhere (e.g. updateContainer called)
+    const unsubscribe = storage.onChange(() => load());
+    return unsubscribe;
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <p style={{ fontSize: 14 }}>Loading container…</p>
+      </div>
+    );
+  }
 
   if (!container) {
     return (
@@ -74,21 +88,21 @@ export default function ContainerDetail() {
     );
   }
 
-  const cfg = statusConfig[container.status] || statusConfig.in_transit;
-  const accentHex = container.needsAttention ? "#D6492F" : cfg.accent;
-  const groupages = container.groupages?.length ? MOCK_GROUPAGES.slice(0, container.groupages.length) : MOCK_GROUPAGES;
+  const cfg        = statusConfig[container.status] || statusConfig.in_transit;
+  const accentHex  = container.needsAttention ? "#D6492F" : cfg.accent;
+  const groupages  = container.groupages?.length ? container.groupages : [];
 
   const tabs = [
-    { key: "groupages", label: "Groupages", icon: Layers },
-    { key: "timeline",  label: "Timeline",  icon: Clock },
-    { key: "documents", label: "Documents", icon: FileText },
+    { key: "groupages", label: "Groupages", icon: Layers      },
+    { key: "timeline",  label: "Timeline",  icon: Clock       },
+    { key: "documents", label: "Documents", icon: FileText     },
   ];
 
   const statusStripCells = [
-    { val: cfg.label, label: "Current status", color: cfg.accent },
+    { val: cfg.label,                                label: "Current status",  color: cfg.accent  },
     { val: container.needsAttention ? "Yes" : "No", label: "Needs attention", color: container.needsAttention ? "#D6492F" : "#2F7E6C" },
-    { val: container.groupages.length, label: "Groupages", color: "#2F7E6C" },
-    { val: formatDateShort(container.eta), label: "ETA", color: "#C9912B" },
+    { val: groupages.length,                         label: "Groupages",       color: "#2F7E6C"   },
+    { val: formatDateShort(container.eta),           label: "ETA",             color: "#C9912B"   },
   ];
 
   return (
@@ -96,7 +110,7 @@ export default function ContainerDetail() {
       <style>{CSS}</style>
       <div style={{ fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" }}>
 
-        {/* ── Hero — full photo, matches Containers/Arrivals/Import/Search ── */}
+        {/* ── Hero ── */}
         <div style={{ position: "relative", height: 480, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <img
             src="https://images.unsplash.com/photo-1750593481405-876be1140853?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
@@ -120,7 +134,6 @@ export default function ContainerDetail() {
                 <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2.2rem,5vw,3.6rem)", letterSpacing: "-0.02em", color: "#DCE6EA", lineHeight: 1, margin: "0 0 14px" }}>
                   {container.number}
                 </h1>
-
                 <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: MONO, fontSize: "0.78rem", color: "#C7E0D8" }}>
                     <MapPin size={13} />
@@ -133,7 +146,6 @@ export default function ContainerDetail() {
                 </div>
               </div>
 
-              {/* Status pill, top-right of hero text block */}
               <div style={{
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "9px 16px", borderRadius: 8,
@@ -164,15 +176,12 @@ export default function ContainerDetail() {
         {/* ── Status strip ── */}
         <div style={{ display: "flex", flexWrap: "wrap", borderBottom: "1px solid rgba(11,42,61,0.18)" }}>
           {statusStripCells.map(({ val, label, color }, i) => (
-            <div
-              key={label}
-              style={{
-                flex: "1 1 140px", padding: "18px 28px",
-                borderLeft: `3px solid ${color}`,
-                borderRight: i === statusStripCells.length - 1 ? "none" : "1px solid rgba(11,42,61,0.12)",
-                background: "#E2DCCB",
-              }}
-            >
+            <div key={label} style={{
+              flex: "1 1 140px", padding: "18px 28px",
+              borderLeft: `3px solid ${color}`,
+              borderRight: i === statusStripCells.length - 1 ? "none" : "1px solid rgba(11,42,61,0.12)",
+              background: "#E2DCCB",
+            }}>
               <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: "1.1rem", lineHeight: 1.2, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {val}
               </div>
@@ -186,11 +195,7 @@ export default function ContainerDetail() {
         {/* ── Tabs ── */}
         <div style={{ display: "flex", borderBottom: "1px solid rgba(11,42,61,0.18)", background: "#ECE7DA", padding: "0 clamp(24px,5vw,48px)" }}>
           {tabs.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              className={`pvd-tab${activeTab === key ? " on" : ""}`}
-              onClick={() => setActiveTab(key)}
-            >
+            <button key={key} className={`pvd-tab${activeTab === key ? " on" : ""}`} onClick={() => setActiveTab(key)}>
               <Icon size={14} style={{ marginRight: 7 }} />
               {label}
             </button>
@@ -202,58 +207,60 @@ export default function ContainerDetail() {
 
           {/* GROUPAGES */}
           {activeTab === "groupages" && (
-            <>
-              <div style={{
-                display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 110px",
-                padding: "11px 20px", background: "#E2DCCB",
-                border: "1px solid rgba(11,42,61,0.18)", borderBottom: "none",
-                borderRadius: "10px 10px 0 0",
-                fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87",
-              }}>
-                <span>Supplier</span><span>Client</span><span>Reference</span><span>Delivery</span>
+            groupages.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
+                No groupages recorded for this container.
               </div>
-              <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
-                {groupages.map((g, i) => (
-                  <div
-                    key={i}
-                    className="pvd-row"
-                    style={{
+            ) : (
+              <>
+                <div style={{
+                  display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 110px",
+                  padding: "11px 20px", background: "#E2DCCB",
+                  border: "1px solid rgba(11,42,61,0.18)", borderBottom: "none",
+                  borderRadius: "10px 10px 0 0",
+                  fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87",
+                }}>
+                  <span>Supplier</span><span>Client</span><span>Reference</span><span>Delivery</span>
+                </div>
+                <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                  {groupages.map((g, i) => (
+                    <div key={i} className="pvd-row" style={{
                       display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 110px",
                       padding: "15px 20px", alignItems: "center", background: "#ECE7DA",
                       borderBottom: i < groupages.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
-                    }}
-                  >
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,42,61,0.06)", color: "#0B2A3D", flexShrink: 0 }}>
-                        <Package size={13} />
-                      </div>
-                      <span style={{ fontFamily: MONO, fontSize: "0.8rem", fontWeight: 500, color: "#0B2A3D" }}>{g.supplier}</span>
-                    </div>
-                    <span style={{ fontSize: "0.8rem", color: "#6E7F87" }}>{g.client}</span>
-                    <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#6E7F87", letterSpacing: "0.04em" }}>{g.reference}</span>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: 5,
-                      fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase",
-                      padding: "5px 10px", borderRadius: 20, fontWeight: 600, width: "fit-content",
-                      background: g.delivered ? "#EAF3DE" : "#FAEEDA", color: g.delivered ? "#3B6D11" : "#854F0B",
                     }}>
-                      {g.delivered ? <CheckCircle size={11} /> : <Clock size={11} />}
-                      {g.delivered ? "Delivered" : "Pending"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,42,61,0.06)", color: "#0B2A3D", flexShrink: 0 }}>
+                          <Package size={13} />
+                        </div>
+                        <span style={{ fontFamily: MONO, fontSize: "0.8rem", fontWeight: 500, color: "#0B2A3D" }}>{g.supplier}</span>
+                      </div>
+                      <span style={{ fontSize: "0.8rem", color: "#6E7F87" }}>{g.client}</span>
+                      <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#6E7F87", letterSpacing: "0.04em" }}>{g.reference}</span>
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase",
+                        padding: "5px 10px", borderRadius: 20, fontWeight: 600, width: "fit-content",
+                        background: g.delivered ? "#EAF3DE" : "#FAEEDA", color: g.delivered ? "#3B6D11" : "#854F0B",
+                      }}>
+                        {g.delivered ? <CheckCircle size={11} /> : <Clock size={11} />}
+                        {g.delivered ? "Delivered" : "Pending"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
           )}
 
           {/* TIMELINE */}
           {activeTab === "timeline" && (
             <div style={{ display: "flex", flexDirection: "column", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden" }}>
-              {(container.timeline || DEFAULT_TIMELINE).map((step, i, arr) => {
-                const isLast = i === arr.length - 1;
-                const dotColor = step.done ? "#2F7E6C" : step.current ? "#854F0B" : "#D3D1C7";
-                const lineColor = step.done ? "#2F7E6C" : "#e0ddd4";
-                const dim = !step.done && !step.current;
+              {(container.timeline?.length ? container.timeline : DEFAULT_TIMELINE).map((step, i, arr) => {
+                const isLast     = i === arr.length - 1;
+                const dotColor   = step.done ? "#2F7E6C" : step.current ? "#854F0B" : "#D3D1C7";
+                const lineColor  = step.done ? "#2F7E6C" : "#e0ddd4";
+                const dim        = !step.done && !step.current;
                 return (
                   <div key={i} style={{ display: "flex", borderBottom: isLast ? "none" : "1px solid rgba(11,42,61,0.1)" }}>
                     <div style={{ width: 60, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0", background: "#E2DCCB", borderRight: "1px solid rgba(11,42,61,0.12)", position: "relative" }}>
@@ -262,14 +269,11 @@ export default function ContainerDetail() {
                     </div>
                     <div style={{ flex: 1, padding: "18px 24px", background: "#ECE7DA", opacity: dim ? 0.5 : 1 }}>
                       <div style={{ fontFamily: MONO, fontSize: "0.82rem", fontWeight: 600, color: "#0B2A3D", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                        {step.done && <CheckCircle size={14} color="#2F7E6C" aria-hidden="true" />}
-                        {step.current && <ClipboardList size={14} color="#854F0B" aria-hidden="true" />}
+                        {step.done    && <CheckCircle  size={14} color="#2F7E6C" />}
+                        {step.current && <ClipboardList size={14} color="#854F0B" />}
                         {step.step}
                         {step.current && (
-                          <span style={{
-                            fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase",
-                            padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: "#FAEEDA", color: "#854F0B",
-                          }}>
+                          <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: "#FAEEDA", color: "#854F0B" }}>
                             Current
                           </span>
                         )}
@@ -288,14 +292,10 @@ export default function ContainerDetail() {
           {activeTab === "documents" && (
             <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden" }}>
               {MOCK_DOCS.map(({ name, Icon, available }, i, arr) => (
-                <div
-                  key={name}
-                  className="pvd-row"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 16, padding: "17px 20px", background: "#ECE7DA",
-                    borderBottom: i < arr.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
-                  }}
-                >
+                <div key={name} className="pvd-row" style={{
+                  display: "flex", alignItems: "center", gap: 16, padding: "17px 20px", background: "#ECE7DA",
+                  borderBottom: i < arr.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
+                }}>
                   <div style={{
                     width: 42, height: 42, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
                     borderRadius: 9,
@@ -305,26 +305,17 @@ export default function ContainerDetail() {
                     <Icon size={18} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "0.95rem", color: "#0B2A3D", marginBottom: 2 }}>
-                      {name}
-                    </div>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "0.95rem", color: "#0B2A3D", marginBottom: 2 }}>{name}</div>
                     <div style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: "#6E7F87" }}>
                       {available ? "Document available" : "Missing — action required"}
                     </div>
                   </div>
                   {available ? (
-                    <button className="pvd-docbtn" style={{
-                      fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase",
-                      padding: "8px 16px", background: "none", border: "1px solid rgba(11,42,61,0.22)",
-                      cursor: "pointer", color: "#0B2A3D", borderRadius: 7,
-                    }}>
+                    <button className="pvd-docbtn" style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", padding: "8px 16px", background: "none", border: "1px solid rgba(11,42,61,0.22)", cursor: "pointer", color: "#0B2A3D", borderRadius: 7 }}>
                       View →
                     </button>
                   ) : (
-                    <span style={{
-                      fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase",
-                      padding: "6px 12px", borderRadius: 20, background: "#F8DDD5", color: "#D6492F", fontWeight: 700,
-                    }}>
+                    <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 12px", borderRadius: 20, background: "#F8DDD5", color: "#D6492F", fontWeight: 700 }}>
                       Missing
                     </span>
                   )}
@@ -339,7 +330,6 @@ export default function ContainerDetail() {
   );
 }
 
-/* ── CSS for hover states (can't do inline) ── */
 const CSS = `
 .pvd-back {
   display: inline-flex; align-items: center; gap: 6px;
@@ -363,7 +353,4 @@ const CSS = `
 .pvd-row:hover { background: #E8E3D5 !important; }
 .pvd-docbtn { transition: background .15s; }
 .pvd-docbtn:hover { background: #E2DCCB; }
-@media (max-width: 720px) {
-  .pvd-hero-grid { flex-direction: column; }
-}
 `;
