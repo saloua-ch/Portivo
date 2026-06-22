@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { containers } from "../data/mockData";
 import {
   AlertCircle, AlertTriangle, Ship, ClipboardList,
   Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
+import * as storage from "../api/storage";
 
 /* ── Google Fonts ── */
 if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
@@ -50,13 +50,25 @@ function etaLabel(str) {
 /* ── Main component ── */
 export default function Containers() {
   const navigate = useNavigate();
+  const [containers, setContainers] = useState([]);  // ← was a static import, now state
+  const [loading, setLoading]       = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [query, setQuery]               = useState("");
   const [sortAsc, setSortAsc]           = useState(true);
   const [syncTime, setSyncTime]         = useState("");
 
+  // Load from storage on mount, and reload whenever data changes elsewhere
   useEffect(() => {
-    setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+    async function load() {
+      setLoading(true);
+      const list = await storage.getContainers();
+      setContainers(list);
+      setLoading(false);
+      setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+    }
+    load();
+    const unsubscribe = storage.onChange(() => load()); // re-run when AddEntry/Import write
+    return unsubscribe; // cleanup on unmount
   }, []);
 
   /* counts */
@@ -67,7 +79,7 @@ export default function Containers() {
       if (c[item.status] !== undefined) c[item.status]++;
     });
     return c;
-  }, []);
+  }, [containers]);
 
   /* filtered list */
   const filtered = useMemo(() => {
@@ -77,7 +89,7 @@ export default function Containers() {
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter(c =>
-        [c.number, c.carrier, c.origin, c.destination].some(v => v.toLowerCase().includes(q))
+        [c.number, c.carrier, c.origin, c.destination].some(v => v && v.toLowerCase().includes(q))
       );
     }
     list.sort((a, b) => sortAsc
@@ -85,7 +97,7 @@ export default function Containers() {
       : new Date(b.eta) - new Date(a.eta)
     );
     return list;
-  }, [activeFilter, query, sortAsc]);
+  }, [containers, activeFilter, query, sortAsc]);
 
   const ledgerCells = [
     { n: containers.length, label: "On file",    accent: "#2F7E6C" },
@@ -99,7 +111,7 @@ export default function Containers() {
     <div style={ROOT}>
       <style>{CSS}</style>
 
-      {/* ── Hero — full photo, matches Arrivals/Search/Import ── */}
+      {/* ── Hero ── */}
       <div style={HERO}>
         <img
           src="https://images.unsplash.com/photo-1583686298564-46fbffda0707?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
@@ -144,7 +156,7 @@ export default function Containers() {
             />
           </div>
           <div style={TOTAL_LABEL}>
-            {filtered.length} container{filtered.length !== 1 ? "s" : ""}
+            {loading ? "Loading…" : `${filtered.length} container${filtered.length !== 1 ? "s" : ""}`}
           </div>
           <button style={SORT_BTN} onClick={() => setSortAsc(v => !v)}>
             <ArrowUpDown size={13} aria-hidden="true" />
@@ -171,8 +183,13 @@ export default function Containers() {
           })}
         </div>
 
-        {/* Grid */}
-        {filtered.length === 0 ? (
+        {/* Loading state */}
+        {loading ? (
+          <div style={EMPTY}>
+            <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
+            <p>Loading containers…</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={EMPTY}>
             <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} aria-hidden="true" />
             <p>No containers match this filter.</p>
@@ -190,7 +207,6 @@ export default function Containers() {
                   onClick={() => navigate(`/containers/${c.id}`)}
                   style={{ borderLeftColor: ca }}
                 >
-                  {/* Stamp header */}
                   <div style={CARD_HEAD}>
                     <div style={{ ...STAMP, borderColor: ca, color: ca }}>
                       <span style={STAMP_NUM}>{c.number}</span>
@@ -200,7 +216,6 @@ export default function Containers() {
                     )}
                   </div>
 
-                  {/* Body */}
                   <div style={CARD_BODY}>
                     <div style={ROUTE}>
                       <span>{c.origin}</span>
@@ -216,7 +231,6 @@ export default function Containers() {
                     )}
                   </div>
 
-                  {/* Footer */}
                   <div style={CARD_FOOT}>
                     <span style={{ ...TAG, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
                     <div style={{ ...ETA_ROW, color: ov ? "#D6492F" : "#6E7F87" }}>
@@ -230,10 +244,10 @@ export default function Containers() {
           </div>
         )}
 
-        {filtered.length > 0 && (
+        {!loading && filtered.length > 0 && (
           <p style={FOOTER}>
             {filtered.length} container{filtered.length !== 1 ? "s" : ""} shown
-            &nbsp;·&nbsp; eta {sortAsc ? "ascending" : "descending"}
+            &nbsp;·&nbsp; sync {syncTime}
           </p>
         )}
       </div>
@@ -243,39 +257,15 @@ export default function Containers() {
 
 /* ── Inline style objects ── */
 const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
-
-const HERO = {
-  position: "relative",
-  height: 560,
-  overflow: "hidden",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "flex-end",
-};
-const HERO_PHOTO = {
-  position: "absolute", inset: 0,
-  width: "100%", height: "100%",
-  objectFit: "cover", objectPosition: "center 35%",
-};
-const HERO_GRADIENT = {
-  position: "absolute", inset: 0,
-  background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)",
-};
-const HERO_TINT = {
-  position: "absolute", inset: 0,
-  background: "rgba(11,42,61,.1)",
-};
-const HERO_CREDIT = {
-  position: "absolute", bottom: 100, right: 16, zIndex: 3,
-  fontFamily: "'IBM Plex Mono', monospace", fontSize: 9,
-  letterSpacing: "0.1em", color: "rgba(255,255,255,.28)", textTransform: "uppercase",
-};
+const HERO = { position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
+const HERO_PHOTO = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%" };
+const HERO_GRADIENT = { position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)" };
+const HERO_TINT = { position: "absolute", inset: 0, background: "rgba(11,42,61,.1)" };
+const HERO_CREDIT = { position: "absolute", bottom: 100, right: 16, zIndex: 3, fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, letterSpacing: "0.1em", color: "rgba(255,255,255,.28)", textTransform: "uppercase" };
 const HERO_CONTENT = { position: "relative", zIndex: 2, padding: "0 44px 40px" };
-
 const EYEBROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#C7E0D8", margin: "0 0 14px" };
 const H1 = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2.6rem, 5vw, 4rem)", letterSpacing: "-0.02em", color: "#DCE6EA", lineHeight: 0.95, margin: "0 0 14px" };
 const HERO_SUB = { fontSize: "0.83rem", color: "rgba(220,230,234,.7)", maxWidth: "34ch", lineHeight: 1.6, margin: 0 };
-
 const LEDGER = { display: "flex", flexWrap: "wrap", borderBottom: "1px solid rgba(11,42,61,0.18)" };
 const LEDGER_CELL = { flex: "1 1 120px", padding: "18px 28px", borderRight: "1px solid rgba(11,42,61,0.12)", borderLeft: "3px solid", background: "#E2DCCB" };
 const LEDGER_NUM = { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: "clamp(1.4rem,2.8vw,2.1rem)", lineHeight: 1 };
@@ -303,7 +293,6 @@ const PIP = { width: 5, height: 5, borderRadius: "50%", flexShrink: 0, display: 
 const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center" };
 const FOOTER = { textAlign: "center", marginTop: 18, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.66rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87" };
 
-/* ── CSS (only for filter/card hover — can't do with inline styles) ── */
 const CSS = `
 .pvc-filter {
   font-family: 'IBM Plex Mono', monospace;
@@ -334,8 +323,4 @@ const CSS = `
   position: relative;
 }
 .pvc-card:hover { background: #F0EBD8; transform: translateY(-3px); z-index: 1; }
-@media (max-width: 720px) {
-  .pvc-hero-inner { flex-direction: column; }
-  .pvc-hero-map { width: 100%; justify-content: center; }
-}
 `;

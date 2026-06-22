@@ -14,7 +14,6 @@ function delay(ms = 120) {
 function readStore() {
   const raw = localStorage.getItem(KEY);
   if (!raw) {
-    // Seed with repo mockData
     localStorage.setItem(KEY, JSON.stringify(seedContainers));
     return JSON.parse(JSON.stringify(seedContainers));
   }
@@ -29,7 +28,6 @@ function readStore() {
 
 function writeStore(data) {
   localStorage.setItem(KEY, JSON.stringify(data));
-  // Emit change event for other pages/components
   window.dispatchEvent(new CustomEvent("pv:data-updated", { detail: { timestamp: Date.now() } }));
 }
 
@@ -76,12 +74,10 @@ export async function getContainer(id) {
 export async function addContainer(payload) {
   await delay();
   const list = readStore();
-  // Minimal validation: ensure number present and unique
   if (!payload.number) {
     throw new Error("Container number is required");
   }
   if (list.some(c => c.number === payload.number)) {
-    // allow duplicates depending on needs — we reject here
     throw new Error("Container number already exists");
   }
   const now = new Date().toISOString();
@@ -101,7 +97,7 @@ export async function addContainer(payload) {
     updated_at: now,
     metadata: payload.metadata || {},
   };
-  list.unshift(item); // put newest first
+  list.unshift(item);
   writeStore(list);
   return JSON.parse(JSON.stringify(item));
 }
@@ -117,7 +113,6 @@ export async function updateContainer(id, patch) {
   return JSON.parse(JSON.stringify(updated));
 }
 
-// Simple CSV import: expects header row matching keys like number,eta,origin,destination,carrier,status,needsAttention
 export async function importContainers(csvText) {
   await delay();
   if (!csvText || !csvText.trim()) return { imported: 0, errors: ["Empty CSV"] };
@@ -128,7 +123,6 @@ export async function importContainers(csvText) {
   const headers = rows[0].split(",").map(h => h.trim().toLowerCase());
   const dataRows = rows.slice(1);
 
-  const allowed = ["number", "eta", "origin", "destination", "carrier", "status", "needsattention", "attentionreason"];
   const list = readStore();
   const errors = [];
   let imported = 0;
@@ -141,11 +135,11 @@ export async function importContainers(csvText) {
       obj[key] = cols[j] ?? "";
     }
     if (!obj.number) {
-      errors.push(`Row ${i+2}: missing number`);
+      errors.push(`Row ${i + 2}: missing number`);
       continue;
     }
     if (list.some(c => c.number === obj.number)) {
-      errors.push(`Row ${i+2}: container ${obj.number} already exists`);
+      errors.push(`Row ${i + 2}: container ${obj.number} already exists`);
       continue;
     }
     const item = {
@@ -171,7 +165,7 @@ export async function importContainers(csvText) {
   return { imported, errors };
 }
 
-// Subscribe to changes (returns unsubscribe function)
+// Subscribe to changes — returns an unsubscribe function, call it in useEffect cleanup
 export function onChange(callback) {
   const handler = (e) => callback(e.detail);
   window.addEventListener("pv:data-updated", handler);
