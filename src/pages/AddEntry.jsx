@@ -47,6 +47,10 @@ import {
 
 const MONO = "'IBM Plex Mono', monospace";
 
+// 4 digits followed by 7 letters, e.g. "1234ABCDEFG" (spaces/case-insensitive on input,
+// normalized before testing).
+const CONTAINER_NUMBER_RE = /^\d{4}[A-Za-z]{7}$/;
+
 /* ── Google Fonts ── */
 if (typeof document !== "undefined" && !document.getElementById("pva-gf")) {
   const l = document.createElement("link");
@@ -102,6 +106,14 @@ function newGroupage() {
     achat: "",
     vente: "",
   };
+}
+
+// Achat/Vente are priced in TND. Empty is fine (both are optional); if filled,
+// must be a plain positive number — formatting/currency suffix is added on display,
+// not typed in by the user, so we don't accept "120 TND" etc. here.
+function isValidTNDAmount(value) {
+  if (!value.trim()) return true;
+  return /^\d+([.,]\d{1,3})?$/.test(value.trim());
 }
 
 /* ── Autocomplete input — free text with a filtered suggestion dropdown ── */
@@ -228,12 +240,62 @@ export default function AddEntry() {
 
   const validate = () => {
     const e = {};
-    if (!containerNumber.trim()) e.containerNumber = "Container number is required";
+
+    // ── Container number: required, must be 4 digits + 7 letters ──
+    const trimmedNumber = containerNumber.trim();
+    if (!trimmedNumber) {
+      e.containerNumber = "Container number is required";
+    } else if (!CONTAINER_NUMBER_RE.test(trimmedNumber.replace(/\s+/g, ""))) {
+      e.containerNumber = "Must be 4 digits followed by 7 letters (e.g. 1234ABCDEFG)";
+    }
+
     if (!agent.trim()) e.agent = "Enter the responsible agent";
-    if (arrivalPorts.length === 0) e.arrivalPort = "Add at least one arrival port (POD)";
+
+    if (arrivalPorts.length === 0) {
+      e.arrivalPort = "Add at least one arrival port (POD)";
+    } else if (origin.trim() && arrivalPorts.some(p => p.trim().toLowerCase() === origin.trim().toLowerCase())) {
+      // ── POL must differ from POD ──
+      e.arrivalPort = "Discharge port (POD) can't be the same as the loading port (POL)";
+    }
+
     if (!eta) e.eta = "Expected arrival date (Tunis) is required";
+
+    // ── Date d'embarquement must be before the discharge/arrival date ──
+    if (embarquementDate && eta && new Date(embarquementDate) >= new Date(eta)) {
+      e.embarquementDate = "Loading date must be before the arrival date (ETA)";
+    }
+
+    // ── ETD, if set, should also make sense relative to embarquement/ETA ──
+    if (embarquementDate && etd && new Date(embarquementDate) >= new Date(etd)) {
+      e.etd = "Departure date must be after the loading date";
+    }
+    if (etd && eta && new Date(etd) > new Date(eta)) {
+      e.etd = e.etd || "Departure date can't be after the arrival date (ETA)";
+    }
+
     const hasAtLeastOneGroupage = groupages.some(g => g.supplier.trim() && g.client.trim());
     if (!hasAtLeastOneGroupage) e.groupages = "Add at least one groupage with a supplier and client";
+
+    // ── Per-groupage checks: booking date before pickup date, valid TND amounts ──
+    const groupageErrors = {};
+    groupages.forEach(g => {
+      const gErr = {};
+      if (g.bookingDate && g.pickupDate && new Date(g.bookingDate) >= new Date(g.pickupDate)) {
+        gErr.pickupDate = "Pickup (enlèvement) must be after the booking date";
+      }
+      if (!isValidTNDAmount(g.achat)) {
+        gErr.achat = "Enter a plain number (TND), e.g. 1500 or 1500.250";
+      }
+      if (!isValidTNDAmount(g.vente)) {
+        gErr.vente = "Enter a plain number (TND), e.g. 1800 or 1800.500";
+      }
+      if (Object.keys(gErr).length > 0) groupageErrors[g.id] = gErr;
+    });
+    if (Object.keys(groupageErrors).length > 0) {
+      e.groupageFields = groupageErrors;
+      e.groupages = e.groupages || "Fix the highlighted fields in the groupages below";
+    }
+
     return e;
   };
 
@@ -420,10 +482,11 @@ export default function AddEntry() {
                     type="date"
                     value={embarquementDate}
                     onChange={e => setEmbarquementDate(e.target.value)}
-                    style={SELECT}
+                    style={{ ...SELECT, ...(errors.embarquementDate ? INPUT_ERROR : {}) }}
                     className="pva-input"
                   />
                 </div>
+                {errors.embarquementDate && <span style={ERROR_TEXT}>{errors.embarquementDate}</span>}
                 <span style={HELP_TEXT}>Date the container was loaded onto the vessel.</span>
               </div>
             </div>
@@ -456,10 +519,11 @@ export default function AddEntry() {
                     type="date"
                     value={etd}
                     onChange={e => setEtd(e.target.value)}
-                    style={SELECT}
+                    style={{ ...SELECT, ...(errors.etd ? INPUT_ERROR : {}) }}
                     className="pva-input"
                   />
                 </div>
+                {errors.etd && <span style={ERROR_TEXT}>{errors.etd}</span>}
                 <span style={HELP_TEXT}>Used to remind you to confirm the ship has left as agreed.</span>
               </div>
               <div style={FIELD} />
@@ -564,9 +628,12 @@ export default function AddEntry() {
                       type="date"
                       value={g.pickupDate}
                       onChange={e => updateGroupage(g.id, "pickupDate", e.target.value)}
-                      style={GROUPAGE_INPUT}
+                      style={{ ...GROUPAGE_INPUT, ...(errors.groupageFields?.[g.id]?.pickupDate ? INPUT_ERROR : {}) }}
                       className="pva-input"
                     />
+                    {errors.groupageFields?.[g.id]?.pickupDate && (
+                      <span style={GROUPAGE_ERROR_TEXT}>{errors.groupageFields[g.id].pickupDate}</span>
+                    )}
                   </div>
                 </div>
 
@@ -595,26 +662,44 @@ export default function AddEntry() {
                     />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}>Achat <span style={OPTIONAL_TAG_SM}>optional</span></label>
-                    <input
-                      type="text"
-                      value={g.achat}
-                      onChange={e => updateGroupage(g.id, "achat", e.target.value)}
-                      placeholder="—"
-                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
-                      className="pva-input"
-                    />
+                    <label style={GLABEL}>Achat (TND) <span style={OPTIONAL_TAG_SM}>optional</span></label>
+                    <div style={SELECT_WRAP}>
+                      <input
+                        type="text"
+                        value={g.achat}
+                        onChange={e => updateGroupage(g.id, "achat", e.target.value)}
+                        placeholder="—"
+                        style={{
+                          ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 42,
+                          ...(errors.groupageFields?.[g.id]?.achat ? INPUT_ERROR : {}),
+                        }}
+                        className="pva-input"
+                      />
+                      <span style={CURRENCY_SUFFIX}>TND</span>
+                    </div>
+                    {errors.groupageFields?.[g.id]?.achat && (
+                      <span style={GROUPAGE_ERROR_TEXT}>{errors.groupageFields[g.id].achat}</span>
+                    )}
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}>Vente <span style={OPTIONAL_TAG_SM}>optional</span></label>
-                    <input
-                      type="text"
-                      value={g.vente}
-                      onChange={e => updateGroupage(g.id, "vente", e.target.value)}
-                      placeholder="—"
-                      style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
-                      className="pva-input"
-                    />
+                    <label style={GLABEL}>Vente (TND) <span style={OPTIONAL_TAG_SM}>optional</span></label>
+                    <div style={SELECT_WRAP}>
+                      <input
+                        type="text"
+                        value={g.vente}
+                        onChange={e => updateGroupage(g.id, "vente", e.target.value)}
+                        placeholder="—"
+                        style={{
+                          ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 42,
+                          ...(errors.groupageFields?.[g.id]?.vente ? INPUT_ERROR : {}),
+                        }}
+                        className="pva-input"
+                      />
+                      <span style={CURRENCY_SUFFIX}>TND</span>
+                    </div>
+                    {errors.groupageFields?.[g.id]?.vente && (
+                      <span style={GROUPAGE_ERROR_TEXT}>{errors.groupageFields[g.id].vente}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -705,6 +790,8 @@ const GROUPAGE_SUBROW_4 = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1
 const GFIELD = { display: "flex", flexDirection: "column", gap: 4 };
 const GLABEL = { fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.04em", textTransform: "uppercase", color: "#8a8680", display: "flex", alignItems: "center", gap: 5 };
 const GROUPAGE_INPUT = { width: "100%", padding: "9px 11px", fontSize: "0.82rem", border: "1px solid rgba(11,42,61,0.16)", borderRadius: 6, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none" };
+const GROUPAGE_ERROR_TEXT = { fontSize: "0.66rem", color: "#D6492F", fontFamily: MONO };
+const CURRENCY_SUFFIX = { position: "absolute", right: 11, color: "#A8A39A", fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.04em", pointerEvents: "none" };
 
 const SUBMIT_ROW = { display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 };
 
