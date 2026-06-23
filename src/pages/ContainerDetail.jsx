@@ -52,6 +52,7 @@ export default function ContainerDetail() {
   const [activeTab, setActiveTab] = useState("groupages");
   const [container, setContainer] = useState(null);
   const [loading, setLoading]     = useState(true);
+  const [savingIdx, setSavingIdx] = useState(null); // index of groupage row currently saving
 
   useEffect(() => {
     async function load() {
@@ -65,6 +66,26 @@ export default function ContainerDetail() {
     const unsubscribe = storage.onChange(() => load());
     return unsubscribe;
   }, [id]);
+
+  // Edits only the delivery status of one groupage, leaving everything else
+  // on the container untouched, and persists it via storage.updateContainer.
+  async function handleDeliveryChange(index, delivered) {
+    if (!container) return;
+    const updatedGroupages = container.groupages.map((g, i) =>
+      i === index ? { ...g, delivered } : g
+    );
+    setSavingIdx(index);
+    try {
+      await storage.updateContainer(container.id, { groupages: updatedGroupages });
+      // storage.onChange (subscribed above) reloads the container, so local
+      // state will reflect the persisted value once the write completes.
+    } catch (err) {
+      console.error("Failed to update delivery status", err);
+      alert("Couldn't save the delivery status — please try again.");
+    } finally {
+      setSavingIdx(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -214,7 +235,7 @@ export default function ContainerDetail() {
             ) : (
               <>
                 <div style={{
-                  display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 110px",
+                  display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px",
                   padding: "11px 20px", background: "#E2DCCB",
                   border: "1px solid rgba(11,42,61,0.18)", borderBottom: "none",
                   borderRadius: "10px 10px 0 0",
@@ -223,31 +244,46 @@ export default function ContainerDetail() {
                   <span>Supplier</span><span>Client</span><span>Reference</span><span>Delivery</span>
                 </div>
                 <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
-                  {groupages.map((g, i) => (
-                    <div key={i} className="pvd-row" style={{
-                      display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 110px",
-                      padding: "15px 20px", alignItems: "center", background: "#ECE7DA",
-                      borderBottom: i < groupages.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
-                    }}>
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,42,61,0.06)", color: "#0B2A3D", flexShrink: 0 }}>
-                          <Package size={13} />
-                        </div>
-                        <span style={{ fontFamily: MONO, fontSize: "0.8rem", fontWeight: 500, color: "#0B2A3D" }}>{g.supplier}</span>
-                      </div>
-                      <span style={{ fontSize: "0.8rem", color: "#6E7F87" }}>{g.client}</span>
-                      <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#6E7F87", letterSpacing: "0.04em" }}>{g.reference}</span>
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", gap: 5,
-                        fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase",
-                        padding: "5px 10px", borderRadius: 20, fontWeight: 600, width: "fit-content",
-                        background: g.delivered ? "#EAF3DE" : "#FAEEDA", color: g.delivered ? "#3B6D11" : "#854F0B",
+                  {groupages.map((g, i) => {
+                    const saving = savingIdx === i;
+                    return (
+                      <div key={i} className="pvd-row" style={{
+                        display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px",
+                        padding: "15px 20px", alignItems: "center", background: "#ECE7DA",
+                        borderBottom: i < groupages.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
                       }}>
-                        {g.delivered ? <CheckCircle size={11} /> : <Clock size={11} />}
-                        {g.delivered ? "Delivered" : "Pending"}
-                      </span>
-                    </div>
-                  ))}
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,42,61,0.06)", color: "#0B2A3D", flexShrink: 0 }}>
+                            <Package size={13} />
+                          </div>
+                          <span style={{ fontFamily: MONO, fontSize: "0.8rem", fontWeight: 500, color: "#0B2A3D" }}>{g.supplier}</span>
+                        </div>
+                        <span style={{ fontSize: "0.8rem", color: "#6E7F87" }}>{g.client || "—"}</span>
+                        <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#6E7F87", letterSpacing: "0.04em" }}>{g.reference || g.vente || g.achat || "—"}</span>
+
+                        {/* Delivery status — editable, options only (Pending / Delivered) */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {g.delivered ? <CheckCircle size={13} color="#3B6D11" /> : <Clock size={13} color="#854F0B" />}
+                          <select
+                            value={g.delivered ? "delivered" : "pending"}
+                            disabled={saving}
+                            onChange={e => handleDeliveryChange(i, e.target.value === "delivered")}
+                            className="pvd-delivery-select"
+                            style={{
+                              fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.1em", textTransform: "uppercase",
+                              padding: "5px 10px", borderRadius: 20, fontWeight: 600, width: "fit-content",
+                              background: g.delivered ? "#EAF3DE" : "#FAEEDA", color: g.delivered ? "#3B6D11" : "#854F0B",
+                              border: "none", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1,
+                            }}
+                            aria-label={`Delivery status for ${g.supplier}`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="delivered">Delivered</option>
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )
@@ -353,4 +389,6 @@ const CSS = `
 .pvd-row:hover { background: #E8E3D5 !important; }
 .pvd-docbtn { transition: background .15s; }
 .pvd-docbtn:hover { background: #E2DCCB; }
+.pvd-delivery-select { -webkit-appearance: none; appearance: none; }
+.pvd-delivery-select:focus { outline: 2px solid rgba(11,42,61,0.3); outline-offset: 1px; }
 `;

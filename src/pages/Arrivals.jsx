@@ -42,16 +42,17 @@ function groupByETA(list) {
   return Object.entries(g).sort(([a], [b]) => new Date(a) - new Date(b));
 }
 
-function getFollowUp(container, verifiedMap) {
+// Follow-up status now reads directly off the persisted container fields
+// (etdVerified / etaVerified) instead of local-only state, so a confirmation
+// survives a page reload.
+function getFollowUp(container) {
   if (container.status === "delivered") return null;
   const etdDays = container.etd ? diffDays(container.etd) : null;
   const etaDays = diffDays(container.eta);
-  const etdVerified = verifiedMap[`${container.id}-etd`];
-  const etaVerified = verifiedMap[`${container.id}-eta`];
-  if (etdDays !== null && etdDays <= 0 && !etdVerified) {
+  if (etdDays !== null && etdDays <= 0 && !container.etdVerified) {
     return { type: "etd", days: etdDays, date: container.etd };
   }
-  if (etaDays <= 0 && !etaVerified) {
+  if (etaDays <= 0 && !container.etaVerified) {
     return { type: "eta", days: etaDays, date: container.eta };
   }
   return null;
@@ -187,7 +188,7 @@ function DayGroup({ date, items, onCardClick }) {
 
 // ─── Follow-up banner ─────────────────────────────────────────────────────────
 
-function FollowUpBanner({ container, followUp, onVerify, onClick }) {
+function FollowUpBanner({ container, followUp, onVerify, onClick, busy }) {
   const isOverdue = followUp.days < 0;
   const dateLabel = followUp.type === "etd" ? "departure" : "arrival";
   const verb = followUp.type === "etd" ? "left" : "arrived";
@@ -223,14 +224,15 @@ function FollowUpBanner({ container, followUp, onVerify, onClick }) {
       </div>
       <button
         onClick={() => onVerify(container.id, followUp.type)}
+        disabled={busy}
         style={{
           display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
-          padding: "8px 14px", borderRadius: 7, border: "none", cursor: "pointer",
-          background: "#0B2A3D", color: "#DCE6EA",
+          padding: "8px 14px", borderRadius: 7, border: "none", cursor: busy ? "default" : "pointer",
+          background: "#0B2A3D", color: "#DCE6EA", opacity: busy ? 0.6 : 1,
           fontFamily: MONO, fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600,
         }}
       >
-        <CheckCircle size={13} /> Mark confirmed
+        <CheckCircle size={13} /> {busy ? "Saving…" : "Mark confirmed"}
       </button>
     </div>
   );
@@ -253,7 +255,7 @@ function VerifiedNote({ entry }) {
   );
 }
 
-function FollowUpSection({ items, verifiedMap, recentlyVerified, onVerify, onClick }) {
+function FollowUpSection({ items, recentlyVerified, onVerify, onClick, pendingKey }) {
   if (items.length === 0 && recentlyVerified.length === 0) return null;
   return (
     <div style={{ marginBottom: 32 }}>
@@ -275,6 +277,7 @@ function FollowUpSection({ items, verifiedMap, recentlyVerified, onVerify, onCli
           followUp={followUp}
           onVerify={onVerify}
           onClick={() => onClick(container.id)}
+          busy={pendingKey === `${container.id}-${followUp.type}`}
         />
       ))}
       {recentlyVerified.map(entry => (
@@ -334,12 +337,12 @@ function Hero({ weekCount, customsCount, overdueCount }) {
 
 export default function Arrivals() {
   const navigate = useNavigate();
-  const [containers, setContainers] = useState([]);  // ← now state, not a static import
+  const [containers, setContainers] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [activeTab, setActiveTab]   = useState("this_week");
   const [syncTime, setSyncTime]     = useState("");
-  const [verifiedMap, setVerifiedMap]         = useState({});
   const [recentlyVerified, setRecentlyVerified] = useState([]);
+  const [pendingKey, setPendingKey] = useState(null); // `${id}-${type}` currently saving
 
   // Load from storage on mount, reload on data changes
   useEffect(() => {
@@ -355,25 +358,43 @@ export default function Arrivals() {
     return unsubscribe;
   }, []);
 
-  const handleVerify = (containerId, type) => {
+  // Persist the confirmation so it survives a reload — the followUp check
+  // reads container.etdVerified / etaVerified, not local-only state.
+  const handleVerify = async (containerId, type) => {
     const container = containers.find(c => c.id === containerId);
+    if (!container) return;
     const key = `${containerId}-${type}`;
-    setVerifiedMap(m => ({ ...m, [key]: true }));
-    setRecentlyVerified(list => [
-      {
-        id: containerId,
-        type,
-        number: container.number,
-        label: type === "etd" ? "Departure" : "Arrival",
-        by: "You",
-        when: new Date().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
-      },
-      ...list,
-    ]);
+    setPendingKey(key);
+    const whenIso = new Date().toISOString();
+    try {
+      await storage.updateContainer(containerId, {
+        [`${type}Verified`]: true,
+        [`${type}VerifiedBy`]: "You",
+        [`${type}VerifiedAt`]: whenIso,
+      });
+      setRecentlyVerified(list => [
+        {
+          id: containerId,
+          type,
+          number: container.number,
+          label: type === "etd" ? "Departure" : "Arrival",
+          by: "You",
+          when: new Date(whenIso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+        },
+        ...list,
+      ]);
+      // storage.onChange (subscribed above) will reload containers with the
+      // persisted flag, so the banner disappears and stays gone on refresh.
+    } catch (err) {
+      console.error("Failed to save confirmation", err);
+      alert("Couldn't save the confirmation — please try again.");
+    } finally {
+      setPendingKey(null);
+    }
   };
 
   const followUps = containers
-    .map(container => ({ container, followUp: getFollowUp(container, verifiedMap) }))
+    .map(container => ({ container, followUp: getFollowUp(container) }))
     .filter(({ followUp }) => followUp !== null)
     .sort((a, b) => a.followUp.days - b.followUp.days);
 
@@ -471,10 +492,10 @@ export default function Arrivals() {
 
           <FollowUpSection
             items={followUps}
-            verifiedMap={verifiedMap}
             recentlyVerified={recentlyVerified}
             onVerify={handleVerify}
             onClick={id => navigate(`/containers/${id}`)}
+            pendingKey={pendingKey}
           />
 
           {loading ? (

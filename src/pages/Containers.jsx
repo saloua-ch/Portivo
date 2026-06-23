@@ -22,6 +22,9 @@ const STATUS = {
   delivered:     { label: "Delivered",     color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: CheckCircle },
 };
 
+// Order shown in the per-card status dropdown
+const STATUS_OPTIONS = ["in_transit", "arriving_soon", "customs", "delivered"];
+
 const FILTERS = [
   { key: "all",           label: "All" },
   { key: "attention",     label: "Needs attention", flag: true },
@@ -50,12 +53,13 @@ function etaLabel(str) {
 /* ── Main component ── */
 export default function Containers() {
   const navigate = useNavigate();
-  const [containers, setContainers] = useState([]);  // ← was a static import, now state
+  const [containers, setContainers] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
   const [query, setQuery]               = useState("");
   const [sortAsc, setSortAsc]           = useState(true);
   const [syncTime, setSyncTime]         = useState("");
+  const [savingId, setSavingId]         = useState(null); // container id currently saving a status change
 
   // Load from storage on mount, and reload whenever data changes elsewhere
   useEffect(() => {
@@ -67,9 +71,23 @@ export default function Containers() {
       setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
     }
     load();
-    const unsubscribe = storage.onChange(() => load()); // re-run when AddEntry/Import write
+    const unsubscribe = storage.onChange(() => load()); // re-run when AddEntry/Import/status changes write
     return unsubscribe; // cleanup on unmount
   }, []);
+
+  // Persist a status change. storage.onChange (subscribed above) reloads the
+  // list once the write completes, so this survives a refresh.
+  async function handleStatusChange(containerId, newStatus) {
+    setSavingId(containerId);
+    try {
+      await storage.updateContainer(containerId, { status: newStatus });
+    } catch (err) {
+      console.error("Failed to update status", err);
+      alert("Couldn't save the new status — please try again.");
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   /* counts */
   const counts = useMemo(() => {
@@ -200,6 +218,7 @@ export default function Containers() {
               const cfg = STATUS[c.status] || STATUS.in_transit;
               const ca  = c.needsAttention ? "#D6492F" : cfg.color;
               const ov  = diffDays(c.eta) < 0;
+              const saving = savingId === c.id;
               return (
                 <div
                   key={c.id}
@@ -232,7 +251,23 @@ export default function Containers() {
                   </div>
 
                   <div style={CARD_FOOT}>
-                    <span style={{ ...TAG, background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                    {/* Status — now an editable dropdown instead of a static tag.
+                        Clicks/changes are stopped from bubbling so they don't
+                        trigger the card's navigate-to-detail handler. */}
+                    <div onClick={e => e.stopPropagation()} style={{ position: "relative" }}>
+                      <select
+                        value={c.status}
+                        disabled={saving}
+                        onChange={e => handleStatusChange(c.id, e.target.value)}
+                        className="pvc-status-select"
+                        style={{ ...TAG, background: cfg.bg, color: cfg.color, opacity: saving ? 0.6 : 1 }}
+                        aria-label={`Status for ${c.number}`}
+                      >
+                        {STATUS_OPTIONS.map(key => (
+                          <option key={key} value={key}>{STATUS[key].label}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div style={{ ...ETA_ROW, color: ov ? "#D6492F" : "#6E7F87" }}>
                       <span style={{ ...PIP, background: ov ? "#D6492F" : cfg.pip }} />
                       {etaLabel(c.eta)}
@@ -287,7 +322,7 @@ const RARR = { color: "#6E7F87", fontWeight: 400, fontSize: "0.82rem" };
 const CARRIER = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", margin: 0 };
 const ALERT_ROW = { display: "flex", alignItems: "center", gap: 4, fontSize: "0.72rem", color: "#D6492F", borderTop: "1px solid rgba(214,73,47,0.14)", padding: "7px 0 0", marginTop: 7 };
 const CARD_FOOT = { marginTop: "auto", padding: "9px 15px", borderTop: "1px solid rgba(11,42,61,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" };
-const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600 };
+const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600, border: "none", cursor: "pointer" };
 const ETA_ROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 4 };
 const PIP = { width: 5, height: 5, borderRadius: "50%", flexShrink: 0, display: "inline-block" };
 const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center" };
@@ -323,4 +358,6 @@ const CSS = `
   position: relative;
 }
 .pvc-card:hover { background: #F0EBD8; transform: translateY(-3px); z-index: 1; }
+.pvc-status-select { -webkit-appearance: none; appearance: none; }
+.pvc-status-select:focus { outline: 2px solid rgba(11,42,61,0.3); outline-offset: 1px; }
 `;

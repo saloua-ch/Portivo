@@ -1,11 +1,10 @@
 /**
  * Portivo — Search page
- * Drop-in replacement for Search.jsx
  * Place at: src/pages/Search.jsx
  *
- * Dependencies already in your project:
- *   - lucide-react      (icons)
- *   - ../data/mockData  (historicalShipments)
+ * Now reads live data from ../api/storage instead of the historicalShipments
+ * mock. Each container's groupages are flattened into searchable "shipment"
+ * rows: { client, supplier, container, reference, date }.
  *
  * Behavior: clicking the hero search bar opens a centered, contained search
  * panel as a modal overlay with a smooth fade+scale entrance and backdrop
@@ -13,13 +12,30 @@
  * Escape, click the backdrop, or click "Close" to dismiss (animated out).
  */
 
-import { useState, useRef, useEffect } from "react";
-import { historicalShipments } from "../data/mockData";
+import { useState, useRef, useEffect, useMemo } from "react";
+import * as storage from "../api/storage";
 import { Search as SearchIcon, Package, ChevronDown, X, Clock3, ArrowUpRight } from "lucide-react";
 
 const MONO = "'IBM Plex Mono', monospace";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Flattens containers + their groupages into flat, searchable shipment rows.
+function buildShipments(containers) {
+  const rows = [];
+  containers.forEach(c => {
+    (c.groupages || []).forEach(g => {
+      rows.push({
+        client: g.client && g.client.trim() ? g.client.trim() : "Unassigned client",
+        supplier: g.supplier || "—",
+        container: c.number,
+        reference: g.reference || g.vente || g.achat || c.ref || "—",
+        date: c.eta || null,
+      });
+    });
+  });
+  return rows;
+}
 
 function groupByEntity(results) {
   const groups = {};
@@ -32,14 +48,15 @@ function groupByEntity(results) {
 }
 
 function formatDate(dateStr) {
+  if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-GB", {
     day: "numeric", month: "short", year: "numeric",
   });
 }
 
 function highlight(text, query) {
-  if (!query.trim()) return text;
-  const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
+  if (!query.trim() || !text) return text;
+  const parts = String(text).split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase()
       ? <mark key={i} style={{ background: "#FAEEDA", color: "#854F0B", borderRadius: 3, padding: "0 3px", fontWeight: 600 }}>{part}</mark>
@@ -149,7 +166,7 @@ function ClientGroup({ client, shipments, query, index }) {
 
 // ─── Hero (page underneath the overlay) ───────────────────────────────────────
 
-function Hero({ onOpen }) {
+function Hero({ onOpen, shipmentCount }) {
   const [hover, setHover] = useState(false);
   return (
     <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -214,7 +231,7 @@ function Hero({ onOpen }) {
 
 // ─── Search overlay (modal) ────────────────────────────────────────────────────
 
-function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, closing }) {
+function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, closing, shipmentCount }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -363,7 +380,7 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
 
               <div style={{ textAlign: "center", marginTop: 24, color: "#A8A39A" }}>
                 <p style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: ".04em" }}>
-                  Searches across {historicalShipments.length} shipments in your history
+                  Searches across {shipmentCount} shipments in your history
                 </p>
               </div>
             </div>
@@ -395,15 +412,30 @@ const KBD_STYLE = {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function Search() {
+  const [containers, setContainers] = useState([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
 
+  // Load real data from storage, and reload whenever it changes elsewhere
+  // (new import, status edit, delivery edit, etc.)
+  useEffect(() => {
+    async function load() {
+      const list = await storage.getContainers();
+      setContainers(list);
+    }
+    load();
+    const unsubscribe = storage.onChange(() => load());
+    return unsubscribe;
+  }, []);
+
+  const shipments = useMemo(() => buildShipments(containers), [containers]);
+
   const results = query.trim().length < 2
     ? []
-    : historicalShipments.filter(s =>
+    : shipments.filter(s =>
         [s.client, s.supplier, s.container, s.reference].some(
-          field => field.toLowerCase().includes(query.toLowerCase())
+          field => field && field.toLowerCase().includes(query.toLowerCase())
         )
       );
 
@@ -465,7 +497,7 @@ export default function Search() {
       `}</style>
 
       <div className="pv-search-root">
-        <Hero onOpen={handleOpen} />
+        <Hero onOpen={handleOpen} shipmentCount={shipments.length} />
       </div>
 
       {open && (
@@ -477,6 +509,7 @@ export default function Search() {
           grouped={grouped}
           hasQuery={hasQuery}
           closing={closing}
+          shipmentCount={shipments.length}
         />
       )}
     </>
