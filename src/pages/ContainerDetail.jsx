@@ -3,8 +3,8 @@ import { useState, useEffect } from "react";
 import * as storage from "../api/storage";
 import {
   ArrowLeft, AlertCircle, Package, FileText,
-  Receipt, FileCheck2, CheckCircle, Clock, ClipboardList,
-  MapPin, Calendar, Layers,
+  CheckCircle, Clock, ClipboardList,
+  MapPin, Calendar, Layers, CalendarClock,
 } from "lucide-react";
 
 /* ── Google Fonts ── */
@@ -30,13 +30,13 @@ function formatDateShort(dateStr) {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
-
-const MOCK_DOCS = [
-  { name: "Bill of Lading",      Icon: FileText,   available: false },
-  { name: "Packing List",        Icon: FileText,   available: true  },
-  { name: "Commercial Invoice",  Icon: Receipt,    available: true  },
-  { name: "Customs Declaration", Icon: FileCheck2, available: false },
-];
+// "2026-07-18" style timeline dates → "2026-07-18" for <input type="date">
+function toInputDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
 
 const DEFAULT_TIMELINE = [
   { step: "Departed origin port", date: null, done: true    },
@@ -53,6 +53,7 @@ export default function ContainerDetail() {
   const [container, setContainer] = useState(null);
   const [loading, setLoading]     = useState(true);
   const [savingIdx, setSavingIdx] = useState(null); // index of groupage row currently saving
+  const [savingTimeline, setSavingTimeline] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -67,16 +68,25 @@ export default function ContainerDetail() {
     return unsubscribe;
   }, [id]);
 
-  // Edits only the delivery status of one groupage, leaving everything else
-  // on the container untouched, and persists it via storage.updateContainer.
+  // Edits the delivery status of one groupage, persists it, and keeps the
+  // container's overall status honest: if every groupage ends up delivered,
+  // the container becomes "delivered" too; if one is reverted afterwards,
+  // it's backed off "delivered" since that's no longer true.
   async function handleDeliveryChange(index, delivered) {
     if (!container) return;
     const updatedGroupages = container.groupages.map((g, i) =>
       i === index ? { ...g, delivered } : g
     );
+    const allDelivered = updatedGroupages.length > 0 && updatedGroupages.every(g => g.delivered);
+    const patch = { groupages: updatedGroupages };
+    if (allDelivered && container.status !== "delivered") {
+      patch.status = "delivered";
+    } else if (!allDelivered && container.status === "delivered") {
+      patch.status = "arriving_soon";
+    }
     setSavingIdx(index);
     try {
-      await storage.updateContainer(container.id, { groupages: updatedGroupages });
+      await storage.updateContainer(container.id, patch);
       // storage.onChange (subscribed above) reloads the container, so local
       // state will reflect the persisted value once the write completes.
     } catch (err) {
@@ -85,6 +95,38 @@ export default function ContainerDetail() {
     } finally {
       setSavingIdx(null);
     }
+  }
+
+  // ── Timeline editing ──
+  // Clicking a step marks every step before it "done" and that step
+  // "current" — i.e. moves the container's progress to that point.
+  async function persistTimeline(timeline) {
+    if (!container) return;
+    setSavingTimeline(true);
+    try {
+      await storage.updateContainer(container.id, { timeline });
+    } catch (err) {
+      console.error("Failed to update timeline", err);
+      alert("Couldn't save the timeline — please try again.");
+    } finally {
+      setSavingTimeline(false);
+    }
+  }
+
+  function handleTimelineAdvance(index) {
+    const base = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
+    const updated = base.map((step, i) => ({
+      ...step,
+      done: i < index,
+      current: i === index,
+    }));
+    persistTimeline(updated);
+  }
+
+  function handleTimelineDateChange(index, value) {
+    const base = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
+    const updated = base.map((step, i) => i === index ? { ...step, date: value || null } : step);
+    persistTimeline(updated);
   }
 
   if (loading) {
@@ -116,7 +158,7 @@ export default function ContainerDetail() {
   const tabs = [
     { key: "groupages", label: "Groupages", icon: Layers      },
     { key: "timeline",  label: "Timeline",  icon: Clock       },
-    { key: "documents", label: "Documents", icon: FileText     },
+    { key: "documents", label: "Documents", icon: FileText, isLink: true },
   ];
 
   const statusStripCells = [
@@ -215,8 +257,12 @@ export default function ContainerDetail() {
 
         {/* ── Tabs ── */}
         <div style={{ display: "flex", borderBottom: "1px solid rgba(11,42,61,0.18)", background: "#ECE7DA", padding: "0 clamp(24px,5vw,48px)" }}>
-          {tabs.map(({ key, label, icon: Icon }) => (
-            <button key={key} className={`pvd-tab${activeTab === key ? " on" : ""}`} onClick={() => setActiveTab(key)}>
+          {tabs.map(({ key, label, icon: Icon, isLink }) => (
+            <button
+              key={key}
+              className={`pvd-tab${activeTab === key ? " on" : ""}`}
+              onClick={() => isLink ? navigate(`/containers/${container.id}/documents`) : setActiveTab(key)}
+            >
               <Icon size={14} style={{ marginRight: 7 }} />
               {label}
             </button>
@@ -235,23 +281,31 @@ export default function ContainerDetail() {
             ) : (
               <>
                 <div style={{
-                  display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px",
+                  display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px 90px",
                   padding: "11px 20px", background: "#E2DCCB",
                   border: "1px solid rgba(11,42,61,0.18)", borderBottom: "none",
                   borderRadius: "10px 10px 0 0",
                   fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87",
                 }}>
-                  <span>Supplier</span><span>Client</span><span>Reference</span><span>Delivery</span>
+                  <span>Supplier</span><span>Client</span><span>Reference</span><span>Delivery</span><span>Docs</span>
                 </div>
                 <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
                   {groupages.map((g, i) => {
                     const saving = savingIdx === i;
+                    const docCount = g.documents?.length ?? 0;
                     return (
-                      <div key={i} className="pvd-row" style={{
-                        display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px",
-                        padding: "15px 20px", alignItems: "center", background: "#ECE7DA",
-                        borderBottom: i < groupages.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
-                      }}>
+                      <div
+                        key={i}
+                        className="pvd-row"
+                        onClick={() => navigate(`/containers/${container.id}/documents?g=${i}`)}
+                        title="View this groupage's documents"
+                        style={{
+                          display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px 90px",
+                          padding: "15px 20px", alignItems: "center", background: "#ECE7DA",
+                          borderBottom: i < groupages.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
+                          cursor: "pointer",
+                        }}
+                      >
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
                           <div style={{ width: 30, height: 30, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,42,61,0.06)", color: "#0B2A3D", flexShrink: 0 }}>
                             <Package size={13} />
@@ -261,8 +315,9 @@ export default function ContainerDetail() {
                         <span style={{ fontSize: "0.8rem", color: "#6E7F87" }}>{g.client || "—"}</span>
                         <span style={{ fontFamily: MONO, fontSize: "0.75rem", color: "#6E7F87", letterSpacing: "0.04em" }}>{g.reference || g.vente || g.achat || "—"}</span>
 
-                        {/* Delivery status — editable, options only (Pending / Delivered) */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {/* Delivery status — editable, options only (Pending / Delivered).
+                            stopPropagation so picking a status doesn't also navigate. */}
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           {g.delivered ? <CheckCircle size={13} color="#3B6D11" /> : <Clock size={13} color="#854F0B" />}
                           <select
                             value={g.delivered ? "delivered" : "pending"}
@@ -281,6 +336,12 @@ export default function ContainerDetail() {
                             <option value="delivered">Delivered</option>
                           </select>
                         </div>
+
+                        {/* Docs affordance */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6E7F87" }}>
+                          <FileText size={13} />
+                          <span style={{ fontFamily: MONO, fontSize: "0.68rem" }}>{docCount}</span>
+                        </div>
                       </div>
                     );
                   })}
@@ -291,73 +352,64 @@ export default function ContainerDetail() {
 
           {/* TIMELINE */}
           {activeTab === "timeline" && (
-            <div style={{ display: "flex", flexDirection: "column", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden" }}>
-              {(container.timeline?.length ? container.timeline : DEFAULT_TIMELINE).map((step, i, arr) => {
-                const isLast     = i === arr.length - 1;
-                const dotColor   = step.done ? "#2F7E6C" : step.current ? "#854F0B" : "#D3D1C7";
-                const lineColor  = step.done ? "#2F7E6C" : "#e0ddd4";
-                const dim        = !step.done && !step.current;
-                return (
-                  <div key={i} style={{ display: "flex", borderBottom: isLast ? "none" : "1px solid rgba(11,42,61,0.1)" }}>
-                    <div style={{ width: 60, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0", background: "#E2DCCB", borderRight: "1px solid rgba(11,42,61,0.12)", position: "relative" }}>
-                      <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, zIndex: 1, background: dotColor, boxShadow: step.current ? `0 0 0 4px ${dotColor}25` : "none" }} />
-                      {!isLast && <div style={{ position: "absolute", top: 34, bottom: 0, left: "50%", width: 1, transform: "translateX(-50%)", background: lineColor }} />}
-                    </div>
-                    <div style={{ flex: 1, padding: "18px 24px", background: "#ECE7DA", opacity: dim ? 0.5 : 1 }}>
-                      <div style={{ fontFamily: MONO, fontSize: "0.82rem", fontWeight: 600, color: "#0B2A3D", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                        {step.done    && <CheckCircle  size={14} color="#2F7E6C" />}
-                        {step.current && <ClipboardList size={14} color="#854F0B" />}
-                        {step.step}
-                        {step.current && (
-                          <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: "#FAEEDA", color: "#854F0B" }}>
-                            Current
-                          </span>
-                        )}
+            <>
+              <p style={{ fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.08em", color: "#6E7F87", marginBottom: 14 }}>
+                Click a step to make it the current stage — everything before it is marked done. Set a date on any step too.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden", opacity: savingTimeline ? 0.7 : 1 }}>
+                {(container.timeline?.length ? container.timeline : DEFAULT_TIMELINE).map((step, i, arr) => {
+                  const isLast     = i === arr.length - 1;
+                  const dotColor   = step.done ? "#2F7E6C" : step.current ? "#854F0B" : "#D3D1C7";
+                  const lineColor  = step.done ? "#2F7E6C" : "#e0ddd4";
+                  const dim        = !step.done && !step.current;
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => !savingTimeline && handleTimelineAdvance(i)}
+                      className="pvd-timeline-row"
+                      style={{ display: "flex", borderBottom: isLast ? "none" : "1px solid rgba(11,42,61,0.1)", cursor: savingTimeline ? "default" : "pointer" }}
+                    >
+                      <div style={{ width: 60, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 0", background: "#E2DCCB", borderRight: "1px solid rgba(11,42,61,0.12)", position: "relative" }}>
+                        <div style={{ width: 14, height: 14, borderRadius: "50%", flexShrink: 0, zIndex: 1, background: dotColor, boxShadow: step.current ? `0 0 0 4px ${dotColor}25` : "none" }} />
+                        {!isLast && <div style={{ position: "absolute", top: 34, bottom: 0, left: "50%", width: 1, transform: "translateX(-50%)", background: lineColor }} />}
                       </div>
-                      <div style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.08em", color: "#6E7F87" }}>
-                        {step.date ? formatDate(step.date) : "Date TBD"}
+                      <div style={{ flex: 1, padding: "18px 24px", background: "#ECE7DA", opacity: dim ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontFamily: MONO, fontSize: "0.82rem", fontWeight: 600, color: "#0B2A3D", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                            {step.done    && <CheckCircle  size={14} color="#2F7E6C" />}
+                            {step.current && <ClipboardList size={14} color="#854F0B" />}
+                            {step.step}
+                            {step.current && (
+                              <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: "#FAEEDA", color: "#854F0B" }}>
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.08em", color: "#6E7F87" }}>
+                            {step.date ? formatDate(step.date) : "Date TBD"}
+                          </div>
+                        </div>
+                        <div onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <CalendarClock size={13} color="#6E7F87" />
+                          <input
+                            type="date"
+                            value={toInputDate(step.date)}
+                            disabled={savingTimeline}
+                            onChange={e => handleTimelineDateChange(i, e.target.value)}
+                            className="pvd-date-input"
+                            style={{
+                              fontFamily: MONO, fontSize: "0.7rem", color: "#0B2A3D",
+                              border: "1px solid rgba(11,42,61,0.18)", borderRadius: 6,
+                              padding: "5px 8px", background: "#fff", cursor: savingTimeline ? "default" : "pointer",
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* DOCUMENTS */}
-          {activeTab === "documents" && (
-            <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden" }}>
-              {MOCK_DOCS.map(({ name, Icon, available }, i, arr) => (
-                <div key={name} className="pvd-row" style={{
-                  display: "flex", alignItems: "center", gap: 16, padding: "17px 20px", background: "#ECE7DA",
-                  borderBottom: i < arr.length - 1 ? "1px solid rgba(11,42,61,0.1)" : "none",
-                }}>
-                  <div style={{
-                    width: 42, height: 42, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRadius: 9,
-                    background: available ? "rgba(47,126,108,0.08)" : "rgba(214,73,47,0.08)",
-                    color: available ? "#2F7E6C" : "#D6492F",
-                  }}>
-                    <Icon size={18} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "0.95rem", color: "#0B2A3D", marginBottom: 2 }}>{name}</div>
-                    <div style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.08em", color: "#6E7F87" }}>
-                      {available ? "Document available" : "Missing — action required"}
-                    </div>
-                  </div>
-                  {available ? (
-                    <button className="pvd-docbtn" style={{ fontFamily: MONO, fontSize: "0.65rem", letterSpacing: "0.12em", textTransform: "uppercase", padding: "8px 16px", background: "none", border: "1px solid rgba(11,42,61,0.22)", cursor: "pointer", color: "#0B2A3D", borderRadius: 7 }}>
-                      View →
-                    </button>
-                  ) : (
-                    <span style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "6px 12px", borderRadius: 20, background: "#F8DDD5", color: "#D6492F", fontWeight: 700 }}>
-                      Missing
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
 
         </div>
@@ -391,4 +443,7 @@ const CSS = `
 .pvd-docbtn:hover { background: #E2DCCB; }
 .pvd-delivery-select { -webkit-appearance: none; appearance: none; }
 .pvd-delivery-select:focus { outline: 2px solid rgba(11,42,61,0.3); outline-offset: 1px; }
+.pvd-timeline-row:hover { background: #E8E3D5; }
+.pvd-timeline-row:hover > div:last-child { background: #E8E3D5 !important; }
+.pvd-date-input:focus { outline: 2px solid rgba(11,42,61,0.3); outline-offset: 1px; }
 `;

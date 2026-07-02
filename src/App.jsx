@@ -9,6 +9,7 @@ import Import from "./pages/Import";
 import Analytics from "./pages/Analytics";
 import AddEntry from "./pages/AddEntry";
 import Archives from "./pages/Archives";
+import Documents from "./pages/Documents";
 
 /**
  * AppShell — only renders the TopNav.
@@ -32,16 +33,18 @@ export default function App() {
         <Route path="/" element={<Home />} />
 
         {/* All inner pages get the nav bar only, no padding wrapper */}
-        <Route path="/arrivals"        element={<AppShell><Arrivals /></AppShell>} />
-        <Route path="/containers"      element={<AppShell><Containers /></AppShell>} />
-        <Route path="/containers/:id"  element={<AppShell><ContainerDetail /></AppShell>} />
-        <Route path="/search"          element={<AppShell><Search /></AppShell>} />
-        <Route path="/import"          element={<AppShell><Import /></AppShell>} />
-        <Route path="/analytics"       element={<AppShell><Analytics /></AppShell>} />
-        <Route path="/AddEntry"       element={<AppShell><AddEntry /></AppShell>} />
-        <Route path="/Archives"       element={<AppShell><Archives /></AppShell>} />
-
-
+        <Route path="/arrivals"                          element={<AppShell><Arrivals /></AppShell>} />
+        <Route path="/containers"                        element={<AppShell><Containers /></AppShell>} />
+        <Route path="/containers/:id"                    element={<AppShell><ContainerDetail /></AppShell>} />
+        {/* Documents must be nested under /containers/:id so the page can
+            read the container id from params. The ?g=<index> query string
+            selects which groupage's docs to show — handled inside the page. */}
+        <Route path="/containers/:id/documents"          element={<AppShell><Documents /></AppShell>} />
+        <Route path="/search"                            element={<AppShell><Search /></AppShell>} />
+        <Route path="/import"                            element={<AppShell><Import /></AppShell>} />
+        <Route path="/analytics"                         element={<AppShell><Analytics /></AppShell>} />
+        <Route path="/AddEntry"                          element={<AppShell><AddEntry /></AppShell>} />
+        <Route path="/Archives"                          element={<AppShell><Archives /></AppShell>} />
       </Routes>
     </BrowserRouter>
   );

@@ -13,6 +13,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import * as storage from "../api/storage";
 import { Search as SearchIcon, Package, ChevronDown, X, Clock3, ArrowUpRight } from "lucide-react";
 
@@ -21,11 +22,14 @@ const MONO = "'IBM Plex Mono', monospace";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Flattens containers + their groupages into flat, searchable shipment rows.
+// containerId is carried along (not shown) so a result can navigate straight
+// to that container's detail page.
 function buildShipments(containers) {
   const rows = [];
   containers.forEach(c => {
     (c.groupages || []).forEach(g => {
       rows.push({
+        containerId: c.id,
         client: g.client && g.client.trim() ? g.client.trim() : "Unassigned client",
         supplier: g.supplier || "—",
         container: c.number,
@@ -68,7 +72,7 @@ const RECENT_SEARCHES = ["Medina Trading", "MSCU7654321", "Carthage Logistics"];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function ClientGroup({ client, shipments, query, index }) {
+function ClientGroup({ client, shipments, query, index, onSelect }) {
   const [expanded, setExpanded] = useState(true);
   const initials = client.slice(0, 2).toUpperCase();
 
@@ -129,6 +133,8 @@ function ClientGroup({ client, shipments, query, index }) {
           <div
             key={i}
             className="pv-ship-row"
+            onClick={() => onSelect(s.containerId)}
+            title="Open this container"
             style={{
               display: "grid",
               gridTemplateColumns: "1.6fr 1.6fr 1fr 1fr",
@@ -136,8 +142,9 @@ function ClientGroup({ client, shipments, query, index }) {
               alignItems: "center",
               borderTop: "1px solid rgba(11,42,61,.05)",
               transition: "background .12s",
+              cursor: "pointer",
             }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(47,126,108,.04)"}
+            onMouseEnter={e => e.currentTarget.style.background = "rgba(47,126,108,.07)"}
             onMouseLeave={e => e.currentTarget.style.background = "transparent"}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -231,7 +238,7 @@ function Hero({ onOpen, shipmentCount }) {
 
 // ─── Search overlay (modal) ────────────────────────────────────────────────────
 
-function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, closing, shipmentCount }) {
+function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, closing, shipmentCount, onSelect }) {
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -340,7 +347,7 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
           )}
 
           {grouped.map(([client, shipments], i) => (
-            <ClientGroup key={client} client={client} shipments={shipments} query={query} index={i} />
+            <ClientGroup key={client} client={client} shipments={shipments} query={query} index={i} onSelect={onSelect} />
           ))}
 
           {!hasQuery && (
@@ -412,6 +419,7 @@ const KBD_STYLE = {
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export default function Search() {
+  const navigate = useNavigate();
   const [containers, setContainers] = useState([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -446,6 +454,16 @@ export default function Search() {
   const handleClose = () => {
     setClosing(true);
     setTimeout(() => { setOpen(false); setClosing(false); setQuery(""); }, 180);
+  };
+
+  // Clicking a shipment row closes the overlay and takes you straight to
+  // that container's detail page.
+  const handleSelect = (containerId) => {
+    if (!containerId) return;
+    setOpen(false);
+    setClosing(false);
+    setQuery("");
+    navigate(`/containers/${containerId}`);
   };
 
   // Global ⌘K / Ctrl+K shortcut
@@ -510,6 +528,7 @@ export default function Search() {
           hasQuery={hasQuery}
           closing={closing}
           shipmentCount={shipments.length}
+          onSelect={handleSelect}
         />
       )}
     </>
