@@ -86,7 +86,7 @@ export default function Archives() {
     );
     // Sort months newest first
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [containers]);
+  }, [containers, selectedYear]);
 
   /* Years that actually have data — for dimming empty year buttons */
   const yearsWithData = useMemo(() => {

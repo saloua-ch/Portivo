@@ -69,9 +69,10 @@ export default function ContainerDetail() {
   }, [id]);
 
   // Edits the delivery status of one groupage, persists it, and keeps the
-  // container's overall status honest: if every groupage ends up delivered,
-  // the container becomes "delivered" too; if one is reverted afterwards,
-  // it's backed off "delivered" since that's no longer true.
+  // container's overall status and timeline honest: if every groupage ends
+  // up delivered, the container becomes "delivered" and the timeline is
+  // pushed to its final step too; if one is reverted afterwards, both are
+  // backed off since that's no longer true.
   async function handleDeliveryChange(index, delivered) {
     if (!container) return;
     const updatedGroupages = container.groupages.map((g, i) =>
@@ -79,11 +80,24 @@ export default function ContainerDetail() {
     );
     const allDelivered = updatedGroupages.length > 0 && updatedGroupages.every(g => g.delivered);
     const patch = { groupages: updatedGroupages };
+    const baseTimeline = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
+
     if (allDelivered && container.status !== "delivered") {
       patch.status = "delivered";
+      // Mark every timeline step as done — the journey is complete.
+      patch.timeline = baseTimeline.map(step => ({ ...step, done: true, current: false }));
     } else if (!allDelivered && container.status === "delivered") {
       patch.status = "arriving_soon";
+      // Back the timeline off one step — final leg is no longer "done".
+      const lastIdx = baseTimeline.length - 1;
+      const revertIdx = Math.max(lastIdx - 1, 0);
+      patch.timeline = baseTimeline.map((step, i) => ({
+        ...step,
+        done: i < revertIdx,
+        current: i === revertIdx,
+      }));
     }
+
     setSavingIdx(index);
     try {
       await storage.updateContainer(container.id, patch);
@@ -98,13 +112,13 @@ export default function ContainerDetail() {
   }
 
   // ── Timeline editing ──
-  // Clicking a step marks every step before it "done" and that step
-  // "current" — i.e. moves the container's progress to that point.
-  async function persistTimeline(timeline) {
+  // Persists any combination of timeline / groupages / status together so
+  // the three stay in sync in a single write.
+  async function persistTimeline(patch) {
     if (!container) return;
     setSavingTimeline(true);
     try {
-      await storage.updateContainer(container.id, { timeline });
+      await storage.updateContainer(container.id, patch);
     } catch (err) {
       console.error("Failed to update timeline", err);
       alert("Couldn't save the timeline — please try again.");
@@ -113,6 +127,12 @@ export default function ContainerDetail() {
     }
   }
 
+  // Clicking a step marks every step before it "done" and that step
+  // "current" — i.e. moves the container's progress to that point.
+  // Reaching the final step means the container has arrived, so every
+  // groupage is marked delivered and the status flips to "delivered" too;
+  // stepping back off the final step reverts the status if it had been
+  // "delivered".
   function handleTimelineAdvance(index) {
     const base = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
     const updated = base.map((step, i) => ({
@@ -120,13 +140,24 @@ export default function ContainerDetail() {
       done: i < index,
       current: i === index,
     }));
-    persistTimeline(updated);
+
+    const patch = { timeline: updated };
+    const isLastStep = index === base.length - 1;
+
+    if (isLastStep) {
+      patch.groupages = container.groupages.map(g => ({ ...g, delivered: true }));
+      patch.status = "delivered";
+    } else if (container.status === "delivered") {
+      patch.status = "arriving_soon";
+    }
+
+    persistTimeline(patch);
   }
 
   function handleTimelineDateChange(index, value) {
     const base = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
     const updated = base.map((step, i) => i === index ? { ...step, date: value || null } : step);
-    persistTimeline(updated);
+    persistTimeline({ timeline: updated });
   }
 
   if (loading) {
