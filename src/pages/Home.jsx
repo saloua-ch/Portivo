@@ -127,12 +127,100 @@ const IconArchive = (props) => (
   </svg>
 );
 
-const SHIP_PATH = "M-8,-5 9,0 -8,5 -3,0Z";
+/* ---- stylized world continents, drawn on the 1440x900 hero viewBox ----
+   Not geographically precise — hand-simplified silhouettes, oriented so
+   Europe / the Mediterranean / North Africa (Tunis) sit at the visual
+   center, with Asia sprawling to the right and the Americas + Australia
+   giving the backdrop genuine "whole world" context. */
+const CONTINENTS = [
+  {
+    id: "north-america",
+    d: "M60,60 C140,18 268,36 306,92 C332,132 300,162 322,204 C344,250 282,262 262,312 C232,364 158,382 118,342 C88,308 60,296 48,244 C26,182 18,108 60,60 Z",
+  },
+  {
+    id: "south-america",
+    d: "M222,408 C284,420 302,462 312,522 C324,602 344,662 302,724 C270,772 240,802 208,792 C178,782 190,700 170,640 C150,580 158,498 180,448 C192,428 202,414 222,408 Z",
+  },
+  {
+    id: "europe",
+    d: "M648,88 C700,66 762,78 804,66 C844,56 872,90 860,122 C850,150 882,160 870,192 C858,222 820,210 800,232 C780,252 750,240 728,262 C708,278 678,262 668,230 C658,200 628,190 630,158 C632,128 630,110 648,88 Z",
+  },
+  {
+    id: "africa",
+    d: "M700,300 C762,288 822,300 852,322 C892,352 902,402 890,452 C880,524 900,582 870,642 C850,692 830,732 800,762 C780,782 758,792 738,772 C720,752 730,712 710,682 C690,652 670,602 660,552 C650,502 630,452 640,402 C650,352 660,322 700,300 Z",
+  },
+  {
+    id: "asia",
+    d: "M900,80 C1000,48 1150,58 1252,90 C1352,120 1440,142 1440,202 L1440,402 C1400,422 1380,462 1340,482 C1300,502 1260,522 1220,502 C1180,482 1150,502 1110,482 C1070,462 1050,422 1020,402 C990,382 950,372 930,342 C900,302 880,262 870,222 C860,182 870,120 900,80 Z",
+  },
+  {
+    id: "australia",
+    d: "M1200,682 C1262,660 1342,672 1372,702 C1402,732 1390,772 1360,792 C1320,812 1258,800 1220,780 C1190,762 1180,712 1200,682 Z",
+  },
+];
 
+/* ---- vehicles: boats have hull + mast + sail + jib + flag,
+   planes have a fuselage + wings + tail — each drawn around the
+   origin so animateMotion + rotate="auto" carries them naturally. ---- */
+const BOAT_PARTS = {
+  hull: "M-24,11 Q0,25 24,11 L17,18 Q0,29 -17,18 Z",
+  mast: "M-1.6,11 L-1.6,-30 L1.6,-30 L1.6,11 Z",
+  sail: "M1.6,-30 L21,9 L1.6,9 Z",
+  jib: "M-1.6,-17 L-14,9 L-1.6,9 Z",
+  flag: "M1.6,-30 L12,-25.5 L1.6,-21 Z",
+};
+
+const PLANE_PARTS = {
+  fuselage: "M-30,0 L17,-4 L28,0 L17,4 Z",
+  wingTop: "M-3,-2 L-18,-24 L2,-6 Z",
+  wingBottom: "M-3,2 L-18,24 L2,6 Z",
+  tailTop: "M-26,0 L-35,-10 L-21,-2 Z",
+  tailBottom: "M-26,0 L-35,10 L-21,2 Z",
+};
+
+/* ---- lanes: each one starts well outside the 1440x900 viewBox so
+   vehicles visibly cross the map's border, converging on Tunis. ---- */
 const LANES = [
-  { id: "lane-shanghai", d: "M20,140 C 360,90 760,220 1150,480", color: "var(--teal)", dur: "26s", begin: "0s" },
-  { id: "lane-genoa", d: "M20,470 C 360,420 760,440 1150,480", color: "var(--amber)", dur: "34s", begin: "-8s" },
-  { id: "lane-valencia", d: "M20,700 C 360,660 760,560 1150,480", color: "var(--coral)", dur: "30s", begin: "-14s" },
+  {
+    id: "lane-shanghai",
+    vehicle: "boat",
+    d: "M1560,240 C 1250,180 980,250 748,308",
+    color: "var(--teal)",
+    dur: "30s",
+    begin: "0s",
+  },
+  {
+    id: "lane-genoa",
+    vehicle: "boat",
+    d: "M792,60 C 772,150 758,240 748,308",
+    color: "var(--amber)",
+    dur: "17s",
+    begin: "-6s",
+  },
+  {
+    id: "lane-valencia",
+    vehicle: "boat",
+    d: "M660,60 C 690,160 722,250 748,308",
+    color: "var(--coral)",
+    dur: "16s",
+    begin: "-11s",
+  },
+  {
+    id: "lane-rome",
+    vehicle: "plane",
+    d: "M804,-100 C 786,90 764,220 748,308",
+    color: "var(--teal-soft)",
+    dur: "13s",
+    begin: "-3s",
+  },
+  {
+    id: "lane-istanbul",
+    vehicle: "plane",
+    d: "M900,-100 C 858,100 796,220 748,308",
+    color: "var(--amber-soft)",
+    dur: "14s",
+    begin: "-9s",
+  },
 ];
 
 const PORTS_OF_CALL = [
@@ -229,53 +317,14 @@ export default function Home() {
         >
           <rect width="1440" height="900" fill="var(--ink)" />
 
-          {/* lat/long grid */}
-          <g stroke="var(--ink-line)" strokeWidth="1" opacity="0.45">
-            <line x1="0" y1="120" x2="1440" y2="120" />
-            <line x1="0" y1="240" x2="1440" y2="240" />
-            <line x1="0" y1="360" x2="1440" y2="360" />
-            <line x1="0" y1="480" x2="1440" y2="480" />
-            <line x1="0" y1="600" x2="1440" y2="600" />
-            <line x1="0" y1="720" x2="1440" y2="720" />
-            <line x1="0" y1="840" x2="1440" y2="840" />
-            <line x1="160" y1="0" x2="160" y2="900" />
-            <line x1="400" y1="0" x2="400" y2="900" />
-            <line x1="640" y1="0" x2="640" y2="900" />
-            <line x1="880" y1="0" x2="880" y2="900" />
-            <line x1="1120" y1="0" x2="1120" y2="900" />
-            <line x1="1360" y1="0" x2="1360" y2="900" />
+          {/* world continents */}
+          <g className="continents">
+            {CONTINENTS.map((c) => (
+              <path key={c.id} d={c.d} />
+            ))}
           </g>
 
-          {/* depth contours around Tunis */}
-          <g fill="none" stroke="var(--ink-line)" strokeWidth="1.2" opacity="0.6">
-            <ellipse cx="1150" cy="480" rx="140" ry="105" transform="rotate(-12 1150 480)" />
-            <ellipse cx="1150" cy="480" rx="270" ry="205" transform="rotate(-12 1150 480)" />
-            <ellipse cx="1150" cy="480" rx="430" ry="330" transform="rotate(-12 1150 480)" />
-            <ellipse cx="1150" cy="480" rx="620" ry="475" transform="rotate(-12 1150 480)" />
-          </g>
-
-          {/* compass rose */}
-          <g transform="translate(1300,110)" stroke="var(--text-on-ink-muted)" fill="none" strokeWidth="1">
-            <circle r="46" opacity="0.5" />
-            <circle r="30" opacity="0.35" />
-            <line x1="0" y1="-58" x2="0" y2="58" opacity="0.5" />
-            <line x1="-58" y1="0" x2="58" y2="0" opacity="0.5" />
-            <path d="M0,-46 L6,0 L0,46 L-6,0 Z" fill="var(--text-on-ink-muted)" opacity="0.6" stroke="none" />
-          </g>
-          <text
-            x="1300"
-            y="38"
-            textAnchor="middle"
-            fill="var(--text-on-ink-muted)"
-            fontFamily="IBM Plex Mono"
-            fontSize="13"
-            letterSpacing="3"
-            opacity="0.7"
-          >
-            N
-          </text>
-
-          {/* shipping lanes */}
+          {/* shipping / flight lanes */}
           {LANES.map((lane) => (
             <path
               key={lane.id}
@@ -283,39 +332,47 @@ export default function Home() {
               d={lane.d}
               fill="none"
               stroke={lane.color}
-              strokeWidth="1.5"
+              strokeWidth="2"
               strokeDasharray="2 8"
-              opacity="0.55"
+              opacity="0.5"
             />
           ))}
 
-          {/* port labels */}
-          <g fontFamily="IBM Plex Mono" fontSize="13" letterSpacing="3" fill="var(--text-on-ink-muted)">
-            <text x="20" y="124">SHANGHAI</text>
-            <text x="20" y="454">GENOA</text>
-            <text x="20" y="684">VALENCIA</text>
-          </g>
-
           {/* Tunis marker */}
-          <g transform="translate(1150,480)">
-            <circle className="tunis-ring" r="6" fill="var(--coral)" opacity="0.5" />
-            <circle r="6" fill="var(--coral)" />
-            <text x="16" y="-12" fontFamily="IBM Plex Mono" fontSize="15" letterSpacing="4" fill="var(--text-on-ink)">
-              TUNIS
-            </text>
-            <text x="16" y="8" fontFamily="IBM Plex Mono" fontSize="11" letterSpacing="2" fill="var(--text-on-ink-muted)">
-              36.8°N 10.3°E
-            </text>
+          <g transform="translate(748,308)">
+            <circle className="tunis-ring" r="7" fill="var(--coral)" opacity="0.5" />
+            <circle r="7" fill="var(--coral)" />
           </g>
 
-          {/* ships */}
+          {/* vehicles: boats on sea lanes, planes on air lanes */}
           <g className="ship-anim">
             {LANES.map((lane) => (
-              <path className="ship" d={SHIP_PATH} key={lane.id}>
+              <g
+                className={`vehicle ${lane.vehicle}`}
+                key={lane.id}
+                style={{ "--vehicle-accent": lane.color }}
+              >
                 <animateMotion dur={lane.dur} repeatCount="indefinite" rotate="auto" begin={lane.begin}>
                   <mpath href={`#${lane.id}`} />
                 </animateMotion>
-              </path>
+                {lane.vehicle === "plane" ? (
+                  <>
+                    <path className="wing" d={PLANE_PARTS.wingTop} />
+                    <path className="wing" d={PLANE_PARTS.wingBottom} />
+                    <path className="tail" d={PLANE_PARTS.tailTop} />
+                    <path className="tail" d={PLANE_PARTS.tailBottom} />
+                    <path className="fuselage" d={PLANE_PARTS.fuselage} />
+                  </>
+                ) : (
+                  <>
+                    <path className="jib" d={BOAT_PARTS.jib} />
+                    <path className="sail" d={BOAT_PARTS.sail} />
+                    <path className="mast" d={BOAT_PARTS.mast} />
+                    <path className="flag" d={BOAT_PARTS.flag} />
+                    <path className="hull" d={BOAT_PARTS.hull} />
+                  </>
+                )}
+              </g>
             ))}
           </g>
         </svg>
@@ -410,6 +467,8 @@ const CSS = `
   --ink: #0B2A3D;
   --ink-deep: #082030;
   --ink-line: #18435A;
+  --land: #123A4E;
+  --land-line: #2C6480;
   --paper: #ECE7DA;
   --paper-2: #E2DCCB;
   --text-on-paper: #1C2B33;
@@ -600,8 +659,35 @@ const CSS = `
   background:linear-gradient(to bottom, var(--text-on-ink-muted), transparent);
 }
 
-/* ship glyphs */
-.portivo-root .ship{ fill:var(--text-on-ink); }
+/* world continents */
+.portivo-root .continents path{
+  fill: var(--land);
+  stroke: var(--land-line);
+  stroke-width: 1.4;
+  opacity: 0.92;
+}
+
+/* vehicles: boats + planes, bigger and colored per route */
+.portivo-root .vehicle{
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+}
+.portivo-root .vehicle .hull,
+.portivo-root .vehicle .mast,
+.portivo-root .vehicle .fuselage{
+  fill: var(--text-on-ink);
+}
+.portivo-root .vehicle .sail,
+.portivo-root .vehicle .wing{
+  fill: var(--vehicle-accent, var(--teal-soft));
+}
+.portivo-root .vehicle .jib,
+.portivo-root .vehicle .tail{
+  fill: var(--vehicle-accent, var(--teal-soft));
+  opacity: 0.8;
+}
+.portivo-root .vehicle .flag{
+  fill: var(--coral);
+}
 @media (prefers-reduced-motion: reduce){
   .portivo-root .ship-anim{ display:none; }
 }

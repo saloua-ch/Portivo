@@ -7,7 +7,7 @@
  *   - Works with both single-sheet (August) and multi-sheet (Archive) files
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import * as storage from "../api/storage";
 
@@ -18,6 +18,10 @@ function pad(n) { return String(n).padStart(2, "0"); }
 function nowTs() {
   const d = new Date();
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function genImportId() {
+  return "imp-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 9000 + 1000).toString(36);
 }
 
 /**
@@ -414,8 +418,8 @@ function HistoryTable({ history }) {
   return (
     <div className="pi-hist">
       <div className="pi-hist-head"><span /><span>File</span><span>Saved</span><span>Groupages</span><span style={{ textAlign:"right" }}>Date & time</span></div>
-      {history.map((h, i) => (
-        <div className="pi-hist-row" key={i}>
+      {history.map((h) => (
+        <div className="pi-hist-row" key={h.id}>
           <div className="pi-hist-icon"><Icon.File /></div>
           <div><div className="pi-hist-n">{h.filename}</div><div className="pi-hist-sub">{h.sheets} sheet{h.sheets !== 1 ? "s" : ""} · {h.skipped} skipped</div></div>
           <div style={{ fontSize:13, color:"#2a5a08", fontWeight:600 }}>{h.ctr}</div>
@@ -438,6 +442,18 @@ export default function Import() {
   const [importing, setImporting]       = useState(false);
   const [history, setHistory]           = useState([]);
 
+  // Load import history from storage on mount, and keep it in sync with
+  // any changes made elsewhere (e.g. a deleted import cascading through).
+  useEffect(() => {
+    async function loadHistory() {
+      const list = await storage.getImportHistory();
+      setHistory(list);
+    }
+    loadHistory();
+    const unsubscribe = storage.onChange(() => loadHistory());
+    return unsubscribe;
+  }, []);
+
   const handleFile = async (file) => {
     // Fetch existing numbers first so preview can flag conflicts
     const existing = await storage.getContainers();
@@ -454,10 +470,13 @@ export default function Import() {
     const newOnes = preview.containers.filter(c => !existingNumbers.includes(c.number));
     let imported = 0;
     let skipped  = preview.containers.length - newOnes.length;
+    const savedIds = [];
+    const importId = genImportId();
 
     for (const c of newOnes) {
       try {
-        await storage.addContainer(c);
+        const saved = await storage.addContainer({ ...c, importId });
+        savedIds.push(saved.id);
         imported++;
       } catch {
         skipped++;
@@ -466,14 +485,21 @@ export default function Import() {
 
     const result = { imported, skipped };
     setImportResult(result);
-    setHistory(prev => [{
+
+    // Persist the history record to storage — storage.onChange (subscribed
+    // above) will pick it up and refresh `history` automatically, so it
+    // survives a reload and cascading deletes work off a real importId.
+    await storage.addImportHistory({
+      id: importId,
       filename: preview.file,
       at: nowTs(),
       ctr: imported,
       grp: newOnes.reduce((a, c) => a + c.groupages.length, 0),
       sheets: preview.sheetsSummary.length,
       skipped,
-    }, ...prev]);
+      containerIds: savedIds,
+    });
+
     setConfirmed(true);
     setImporting(false);
   };
