@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 
 /* ── Google Fonts ── */
 if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
@@ -53,6 +54,7 @@ function etaLabel(str) {
 /* ── Main component ── */
 export default function Containers() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [containers, setContainers] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
@@ -119,7 +121,7 @@ export default function Containers() {
 
   const ledgerCells = [
     { n: containers.length, label: "On file",    accent: "#2F7E6C" },
-    { n: counts.in_transit, label: "In transit", accent: "#2F7E6C" },
+    { n: counts.in_transit, label: t('containers.inTransit'), accent: "#2F7E6C" },
     { n: counts.customs,    label: "Customs",    accent: "#C9912B" },
     { n: counts.attention,  label: "Attention",  accent: "#D6492F" },
     { n: counts.arriving_soon, label: "Arriving", accent: "#185FA5" },
@@ -132,7 +134,7 @@ export default function Containers() {
       {/* ── Hero ── */}
       <div style={HERO}>
         <img
-          src="https://images.unsplash.com/photo-1583686298564-46fbffda0707?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
+          src="https://images.unsplash.com/photo-1583686298564-46fbffda0707?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&au[...]"
           alt="Stacked shipping containers in a terminal yard"
           style={HERO_PHOTO}
         />
@@ -142,7 +144,7 @@ export default function Containers() {
 
         <div style={HERO_CONTENT}>
           <p style={EYEBROW}>Tunis–Goulette terminal · Fleet manifest</p>
-          <h1 style={H1}>Containers</h1>
+          <h1 style={H1}>{t('containers.title')}</h1>
           <p style={HERO_SUB}>Every unit in the fleet — in transit, clearing customs, or delivered.</p>
         </div>
       </div>
@@ -167,14 +169,14 @@ export default function Containers() {
             <input
               style={SRCH_INPUT}
               type="text"
-              placeholder="Container number, carrier, route…"
+              placeholder={t('containers.search')}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              aria-label="Search containers"
+              aria-label={t('containers.search')}
             />
           </div>
           <div style={TOTAL_LABEL}>
-            {loading ? "Loading…" : `${filtered.length} container${filtered.length !== 1 ? "s" : ""}`}
+            {loading ? t('common.loading') : `${filtered.length} ${t('containers.number')}${filtered.length !== 1 ? "s" : ""}`}
           </div>
           <button style={SORT_BTN} onClick={() => setSortAsc(v => !v)}>
             <ArrowUpDown size={13} aria-hidden="true" />
@@ -205,7 +207,7 @@ export default function Containers() {
         {loading ? (
           <div style={EMPTY}>
             <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
-            <p>Loading containers…</p>
+            <p>{t('common.loading')}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div style={EMPTY}>
@@ -309,7 +311,7 @@ const BODY = { padding: "36px clamp(24px,5vw,48px) 64px" };
 const TOOLBAR = { display: "flex", alignItems: "center", border: "1px solid rgba(11,42,61,0.18)", background: "#E2DCCB" };
 const SRCH = { display: "flex", alignItems: "center", gap: 10, flex: 1, padding: "12px 16px", borderRight: "1px solid rgba(11,42,61,0.14)", color: "#6E7F87" };
 const SRCH_INPUT = { flex: 1, border: "none", background: "none", outline: "none", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#1C2B33" };
-const TOTAL_LABEL = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", padding: "12px 20px", borderRight: "1px solid rgba(11,42,61,0.14)", whiteSpace: "nowrap" };
+const TOTAL_LABEL = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", padding: "12px 20px", borderRight: "1px solid rgba(11,42,61,0.14)" };
 const SORT_BTN = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.06em", background: "none", border: "none", cursor: "pointer", padding: "12px 16px", color: "#6E7F87", display: "flex", alignItems: "center", gap: 5 };
 const FILT_ROW = { display: "flex", flexWrap: "wrap", border: "1px solid rgba(11,42,61,0.18)", borderTop: "none", background: "#ECE7DA", marginBottom: 28 };
 const GRID = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 1, background: "rgba(11,42,61,0.16)", border: "1px solid rgba(11,42,61,0.18)" };
@@ -325,7 +327,7 @@ const CARD_FOOT = { marginTop: "auto", padding: "9px 15px", borderTop: "1px soli
 const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600, border: "none", cursor: "pointer" };
 const ETA_ROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 4 };
 const PIP = { width: 5, height: 5, borderRadius: "50%", flexShrink: 0, display: "inline-block" };
-const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center" };
+const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" };
 const FOOTER = { textAlign: "center", marginTop: 18, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.66rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87" };
 
 const CSS = `
