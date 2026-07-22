@@ -1,7 +1,8 @@
 import { NavLink, Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Bell, Mail, Anchor } from "lucide-react";
+import { Bell, Mail, Anchor, Globe } from "lucide-react";
 import { getAlerts, subscribeAlerts } from "../state/alerts";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * TopNav — replaces Sidebar across inner app pages.
@@ -27,8 +28,13 @@ export default function TopNav() {
   const [syncTime, setSyncTime] = useState("");
   const [alerts, setLocalAlerts] = useState(getAlerts());
   const [open, setOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const popRef = useRef(null);
   const btnRef = useRef(null);
+  const langBtnRef = useRef(null);
+  const langPopRef = useRef(null);
+
+  const { language, toggleLanguage, t } = useLanguage();
 
   useEffect(() => {
     setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
@@ -49,6 +55,17 @@ export default function TopNav() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
+
+  // Close language dropdown on outside click
+  useEffect(() => {
+    if (!langOpen) return;
+    function handleClick(e) {
+      if (langPopRef.current?.contains(e.target) || langBtnRef.current?.contains(e.target)) return;
+      setLangOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [langOpen]);
 
   const hasAlerts = alerts.count > 0;
 
@@ -71,17 +88,56 @@ export default function TopNav() {
       </Link>
 
       <nav className="pv-topnav-links">
-        <NavLink to="/arrivals" className={navClass}>Arrivals</NavLink>
-        <NavLink to="/containers" className={navClass}>Containers</NavLink>
-        <NavLink to="/search" className={navClass}>Search</NavLink>
-        <NavLink to="/import" className={navClass}>Import</NavLink>
-        <NavLink to="/analytics" className={navClass}>Analytics</NavLink>
-        <NavLink to="/AddEntry" className={navClass}>Add Entry</NavLink>
-        <NavLink to="/Archives" className={navClass}>Archives</NavLink>
+        <NavLink to="/arrivals" className={navClass}>{t('nav.arrivals')}</NavLink>
+        <NavLink to="/containers" className={navClass}>{t('nav.containers')}</NavLink>
+        <NavLink to="/search" className={navClass}>{t('nav.search')}</NavLink>
+        <NavLink to="/import" className={navClass}>{t('nav.import')}</NavLink>
+        <NavLink to="/analytics" className={navClass}>{t('nav.analytics')}</NavLink>
+        <NavLink to="/AddEntry" className={navClass}>{t('nav.addEntry')}</NavLink>
+        <NavLink to="/Archives" className={navClass}>{t('nav.archives')}</NavLink>
 
       </nav>
 
       <div className="pv-topnav-right">
+        {/* Language Switcher */}
+        <div className="pv-topnav-lang-wrap">
+          <button
+            ref={langBtnRef}
+            type="button"
+            className="pv-topnav-lang-btn"
+            onClick={() => setLangOpen(o => !o)}
+            aria-label="Change language"
+            aria-expanded={langOpen}
+            title={t('topnav.language')}
+          >
+            <Globe size={16} />
+            <span className="pv-topnav-lang-text">{language.toUpperCase()}</span>
+          </button>
+
+          {langOpen && (
+            <div ref={langPopRef} className="pv-topnav-lang-pop">
+              <button
+                onClick={() => {
+                  if (language !== 'en') toggleLanguage();
+                  setLangOpen(false);
+                }}
+                className={`pv-topnav-lang-option ${language === 'en' ? 'active' : ''}`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => {
+                  if (language !== 'fr') toggleLanguage();
+                  setLangOpen(false);
+                }}
+                className={`pv-topnav-lang-option ${language === 'fr' ? 'active' : ''}`}
+              >
+                Français
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="pv-topnav-bell-wrap">
           <button
             ref={btnRef}
@@ -213,6 +269,80 @@ const CSS = `
   align-items: center;
   gap: 18px;
   flex-shrink: 0;
+}
+
+.pv-topnav-lang-wrap{
+  position: relative;
+}
+
+.pv-topnav-lang-btn{
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: #6F8B9C;
+  cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.pv-topnav-lang-text{
+  display: none;
+}
+
+.pv-topnav-lang-btn:hover{
+  background: rgba(255,255,255,0.08);
+  color: #DCE6EA;
+}
+
+@media (min-width: 640px){
+  .pv-topnav-lang-text{
+    display: inline;
+  }
+}
+
+.pv-topnav-lang-pop{
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #ECE7DA;
+  border: 1px solid rgba(11,42,61,.14);
+  border-radius: 7px;
+  box-shadow: 0 8px 20px rgba(8,20,30,.2);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.pv-topnav-lang-option{
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px;
+  color: #0B2A3D;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.pv-topnav-lang-option:hover{
+  background: rgba(11,42,61,.08);
+}
+
+.pv-topnav-lang-option.active{
+  background: rgba(47,126,108,.15);
+  color: #2F7E6C;
+  font-weight: 600;
 }
 
 .pv-topnav-bell-wrap{
