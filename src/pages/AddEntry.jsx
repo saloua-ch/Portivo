@@ -25,9 +25,10 @@ if (typeof document !== "undefined" && !document.getElementById("pva-gf")) {
 
 const AGENTS = ["Salwa Ben Ali","Karim Trabelsi","Nadia Mansour","Walid Cherif","Amel Jendoubi"];
 const SHIPPERS = ["Genmar Shipping","Med Freight Lines","Atlas Cargo Services"];
-const ORIGIN_PORTS = ["Shanghai","Ningbo","Shenzhen","Qingdao","Guangzhou","Hong Kong","Singapore","Busan","Rotterdam","Antwerp","Hamburg","Genoa","Valencia","Barcelona","Marseille","Piraeus","Istanbul","Alexandria","Casablanca","Algiers"];
+const ORIGIN_PORTS = ["Shanghai","Ningbo","Shenzhen","Qingdao","Guangzhou","Hong Kong","Singapore","Busan","Rotterdam","Antwerp","Hamburg","Genoa","Valencia","Barcelona","Marseille","Piraeus","Istanbul","Alexandria","Casablanca","Algiers","Ambarli","Alexandrie"];
 const ARRIVAL_PORTS = ["Tunis-Goulette","Rades","Sfax","Bizerte","Sousse","Gabes","Zarzis","Tunis-Carthage"];
-const CARRIERS = ["MSC","Maersk","CMA CGM","Hapag-Lloyd","COSCO","Evergreen","ONE (Ocean Network Express)","Yang Ming","HMM","ZIM","Wan Hai Lines","PIL (Pacific International Lines)"];
+const CARRIERS = ["MSC","Maersk","CMA CGM","Hapag-Lloyd","COSCO","Evergreen","ONE (Ocean Network Express)","Yang Ming","HMM","ZIM","Wan Hai Lines","PIL (Pacific International Lines)","AKKON","MEDKON","MESSINA"];
+const NATURE_MARCHANDISE_OPTIONS = ["Textile","Électroménager","Pièces détachées","Produits alimentaires","Matériaux de construction","Meubles","Produits chimiques","Divers"];
 
 let groupageIdCounter = 0;
 function newGroupage() {
@@ -38,6 +39,15 @@ function newGroupage() {
 function isValidTNDAmount(value) {
   if (!value.trim()) return true;
   return /^\d+([.,]\d{1,3})?$/.test(value.trim());
+}
+
+function formatDate(d) {
+  if (!d) return "—";
+  try {
+    return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return d;
+  }
 }
 
 /* ── Autocomplete input ── */
@@ -91,18 +101,28 @@ function Hero() {
   );
 }
 
+/* ── Recap row (used on the confirmation screen) ── */
+function RecapRow({ label, value }) {
+  return (
+    <div style={RECAP_ROW}>
+      <span style={RECAP_LABEL}>{label}</span>
+      <span style={RECAP_VALUE}>{value || "—"}</span>
+    </div>
+  );
+}
+
 export default function AddEntry() {
   const navigate = useNavigate();
 
   const [containerNumber, setContainerNumber]   = useState("");
   const [agent, setAgent]                       = useState("");
   const [origin, setOrigin]                     = useState("");
-  const [arrivalPorts, setArrivalPorts]         = useState([]);
-  const [arrivalPortInput, setArrivalPortInput] = useState("");
+  const [arrivalPort, setArrivalPort]           = useState("");
   const [carrier, setCarrier]                   = useState("");
+  const [natureMarchandise, setNatureMarchandise] = useState("");
   const [embarquementDate, setEmbarquementDate] = useState("");
   const [eta, setEta]                           = useState("");
-  const [etd, setEtd]                           = useState("");
+  const [magasinageDate, setMagasinageDate]     = useState("");
   const [groupages, setGroupages]               = useState([newGroupage()]);
   const [submitted, setSubmitted]               = useState(false);
   const [savedContainer, setSavedContainer]     = useState(null);
@@ -113,8 +133,6 @@ export default function AddEntry() {
   const updateGroupage = (id, field, value) => setGroupages(gs => gs.map(g => g.id === id ? { ...g, [field]: value } : g));
   const addGroupage    = () => setGroupages(gs => [...gs, newGroupage()]);
   const removeGroupage = (id) => setGroupages(gs => gs.length > 1 ? gs.filter(g => g.id !== id) : gs);
-  const addArrivalPort = (port) => { if (port && !arrivalPorts.includes(port)) setArrivalPorts(p => [...p, port]); setArrivalPortInput(""); };
-  const removeArrivalPort = (port) => setArrivalPorts(p => p.filter(x => x !== port));
 
   const validate = () => {
     const e = {};
@@ -122,12 +140,12 @@ export default function AddEntry() {
     if (!trimmedNumber) e.containerNumber = "Container number is required";
     else if (!CONTAINER_NUMBER_RE.test(trimmedNumber.replace(/\s+/g, ""))) e.containerNumber = "Must be 4 digits followed by 7 letters (e.g. 1234ABCDEFG)";
     if (!agent.trim()) e.agent = "Enter the responsible agent";
-    if (arrivalPorts.length === 0) e.arrivalPort = "Add at least one arrival port (POD)";
-    else if (origin.trim() && arrivalPorts.some(p => p.trim().toLowerCase() === origin.trim().toLowerCase())) e.arrivalPort = "Discharge port (POD) can't be the same as the loading port (POL)";
+    if (!arrivalPort) e.arrivalPort = "Select an arrival port (POD)";
+    else if (origin.trim() && arrivalPort.trim().toLowerCase() === origin.trim().toLowerCase()) e.arrivalPort = "Discharge port (POD) can't be the same as the loading port (POL)";
     if (!eta) e.eta = "Expected arrival date (Tunis) is required";
     if (embarquementDate && eta && new Date(embarquementDate) >= new Date(eta)) e.embarquementDate = "Loading date must be before the arrival date (ETA)";
-    if (embarquementDate && etd && new Date(embarquementDate) >= new Date(etd)) e.etd = "Departure date must be after the loading date";
-    if (etd && eta && new Date(etd) > new Date(eta)) e.etd = e.etd || "Departure date can't be after the arrival date (ETA)";
+    if (embarquementDate && magasinageDate && new Date(embarquementDate) >= new Date(magasinageDate)) e.magasinageDate = "Date de magasinage must be after the loading date";
+    if (magasinageDate && eta && new Date(magasinageDate) > new Date(eta)) e.magasinageDate = e.magasinageDate || "Date de magasinage can't be after the arrival date (ETA)";
     const hasAtLeastOneGroupage = groupages.some(g => g.supplier.trim() && g.client.trim());
     if (!hasAtLeastOneGroupage) e.groupages = "Add at least one groupage with a supplier and client";
     const groupageErrors = {};
@@ -156,12 +174,13 @@ export default function AddEntry() {
         number: containerNumber.trim(),
         agent: agent.trim(),
         origin: origin || "—",
-        destination: arrivalPorts.join(" / "),
+        destination: arrivalPort,
         carrier: carrier.trim() || "—",
+        natureMarchandise: natureMarchandise || "—",
         status: "in_transit",
         embarquementDate: embarquementDate || null,
         eta,
-        etd: etd || null,
+        magasinageDate: magasinageDate || null,
         needsAttention: false,
         groupages: groupages
           .filter(g => g.supplier.trim() && g.client.trim())
@@ -184,15 +203,16 @@ export default function AddEntry() {
   };
 
   const resetForm = () => {
-    setContainerNumber(""); setAgent(""); setOrigin(""); setArrivalPorts([]); setArrivalPortInput("");
-    setCarrier(""); setEmbarquementDate(""); setEta(""); setEtd(""); setGroupages([newGroupage()]);
+    setContainerNumber(""); setAgent(""); setOrigin(""); setArrivalPort("");
+    setCarrier(""); setNatureMarchandise(""); setEmbarquementDate(""); setEta(""); setMagasinageDate(""); setGroupages([newGroupage()]);
     setErrors({}); setSubmitted(false); setSavedContainer(null); setSaveError("");
   };
 
   const validGroupageCount = groupages.filter(g => g.supplier.trim() && g.client.trim()).length;
 
-  /* ── Success screen ── */
+  /* ── Success / confirmation screen ── */
   if (submitted && savedContainer) {
+    const savedGroupages = savedContainer.groupages || [];
     return (
       <div style={ROOT}>
         <style>{CSS}</style>
@@ -201,8 +221,54 @@ export default function AddEntry() {
           <h1 style={SUCCESS_H1}>Container added</h1>
           <p style={SUCCESS_SUB}>
             <span style={{ fontFamily: MONO, fontWeight: 600, color: "#1C2B33" }}>{savedContainer.number}</span>
-            {" "}has been saved with {validGroupageCount} groupage{validGroupageCount !== 1 ? "s" : ""}.
+            {" "}has been saved with {validGroupageCount} groupage{validGroupageCount !== 1 ? "s" : ""}. Here's what was recorded:
           </p>
+
+          {/* Recap card — container details */}
+          <div style={RECAP_CARD}>
+            <div style={RECAP_CARD_HEAD}>
+              <Package size={14} style={{ color: "#2F7E6C" }} />
+              <span style={RECAP_CARD_TITLE}>Container details</span>
+            </div>
+            <div style={RECAP_CARD_BODY}>
+              <RecapRow label="Container #" value={<span style={{ fontFamily: MONO }}>{savedContainer.number}</span>} />
+              <RecapRow label="Agent" value={agent} />
+              <RecapRow label="Shipping line" value={carrier} />
+              <RecapRow label="POL" value={origin} />
+              <RecapRow label="POD" value={arrivalPort} />
+              <RecapRow label="Nature marchandise" value={natureMarchandise} />
+              <RecapRow label="Date d'embarquement" value={formatDate(embarquementDate)} />
+              <RecapRow label="ETA (Tunis)" value={formatDate(eta)} />
+              <RecapRow label="Date de magasinage" value={formatDate(magasinageDate)} />
+            </div>
+          </div>
+
+          {/* Recap card — groupages */}
+          {savedGroupages.length > 0 && (
+            <div style={RECAP_CARD}>
+              <div style={RECAP_CARD_HEAD}>
+                <Package size={14} style={{ color: "#185FA5" }} />
+                <span style={RECAP_CARD_TITLE}>Groupages ({savedGroupages.length})</span>
+              </div>
+              <div style={RECAP_CARD_BODY}>
+                {savedGroupages.map((g, i) => (
+                  <div key={i} style={RECAP_GROUPAGE}>
+                    <span style={RECAP_GROUPAGE_BADGE}>{String(i + 1).padStart(2, "0")}</span>
+                    <div style={RECAP_GROUPAGE_GRID}>
+                      <RecapRow label="Fournisseur" value={g.supplier} />
+                      <RecapRow label="Client" value={g.client} />
+                      <RecapRow label="Réf. client" value={g.clientRef} />
+                      <RecapRow label="Poids" value={g.weight ? `${g.weight} kg` : ""} />
+                      <RecapRow label="Colis" value={g.packages} />
+                      <RecapRow label="Achat" value={g.achat ? `${g.achat} TND` : ""} />
+                      <RecapRow label="Vente" value={g.vente ? `${g.vente} TND` : ""} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={SUCCESS_ACTIONS}>
             <button className="pva-btn-secondary" onClick={resetForm}>Add another container</button>
             <button className="pva-btn-primary" onClick={() => navigate(`/containers/${savedContainer.id}`)}>View container</button>
@@ -250,27 +316,14 @@ export default function AddEntry() {
                 <AutocompleteInput value={origin} onChange={setOrigin} options={ORIGIN_PORTS} placeholder="Type origin port…" icon={Building2} />
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>POD — port(s) of discharge <span style={REQUIRED}>*</span></label>
-                <div style={AC_WRAP}>
-                  <div style={SELECT_WRAP}>
-                    <Anchor size={14} style={SELECT_ICON} />
-                    <input type="text" value={arrivalPortInput} onChange={e => setArrivalPortInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addArrivalPort(arrivalPortInput.trim()); } }} placeholder="Type a port, press Enter…" style={{ ...SELECT, paddingLeft: 38, ...(errors.arrivalPort ? INPUT_ERROR : {}) }} className="pva-input" />
-                  </div>
-                  {arrivalPortInput.trim() && (
-                    <ul style={AC_LIST} role="listbox">
-                      {ARRIVAL_PORTS.filter(p => p.toLowerCase().includes(arrivalPortInput.trim().toLowerCase()) && !arrivalPorts.includes(p)).slice(0, 6).map(p => (
-                        <li key={p} style={AC_ITEM} onMouseDown={() => addArrivalPort(p)}>{p}</li>
-                      ))}
-                    </ul>
-                  )}
+                <label style={LABEL}>POD — port of discharge <span style={REQUIRED}>*</span></label>
+                <div style={SELECT_WRAP}>
+                  <Anchor size={14} style={SELECT_ICON} />
+                  <select value={arrivalPort} onChange={e => setArrivalPort(e.target.value)} style={{ ...SELECT, ...(errors.arrivalPort ? INPUT_ERROR : {}) }} className="pva-input">
+                    <option value="">Select a port…</option>
+                    {ARRIVAL_PORTS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
                 </div>
-                {arrivalPorts.length > 0 && (
-                  <div style={PORT_CHIPS}>
-                    {arrivalPorts.map(p => (
-                      <span key={p} style={PORT_CHIP}>{p}<button type="button" onClick={() => removeArrivalPort(p)} style={PORT_CHIP_X} aria-label={`Remove ${p}`}>×</button></span>
-                    ))}
-                  </div>
-                )}
                 {errors.arrivalPort && <span style={ERROR_TEXT}>{errors.arrivalPort}</span>}
               </div>
               <div style={FIELD}>
@@ -295,15 +348,21 @@ export default function AddEntry() {
                 <span style={HELP_TEXT}>This is the date you'll get reminded to confirm — your "rappel".</span>
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>Expected departure (ETD) <span style={OPTIONAL_TAG}>optional</span></label>
+                <label style={LABEL}>Date de magasinage <span style={OPTIONAL_TAG}>optional</span></label>
                 <div style={SELECT_WRAP}>
                   <Calendar size={14} style={SELECT_ICON} />
-                  <input type="date" value={etd} onChange={e => setEtd(e.target.value)} style={{ ...SELECT, ...(errors.etd ? INPUT_ERROR : {}) }} className="pva-input" />
+                  <input type="date" value={magasinageDate} onChange={e => setMagasinageDate(e.target.value)} style={{ ...SELECT, ...(errors.magasinageDate ? INPUT_ERROR : {}) }} className="pva-input" />
                 </div>
-                {errors.etd && <span style={ERROR_TEXT}>{errors.etd}</span>}
-                <span style={HELP_TEXT}>Used to remind you to confirm the ship has left as agreed.</span>
+                {errors.magasinageDate && <span style={ERROR_TEXT}>{errors.magasinageDate}</span>}
+                <span style={HELP_TEXT}>Date the container enters bonded storage/warehousing.</span>
               </div>
-              <div style={FIELD} />
+              <div style={FIELD}>
+                <label style={LABEL}>Nature marchandise</label>
+                <select value={natureMarchandise} onChange={e => setNatureMarchandise(e.target.value)} style={SELECT} className="pva-input">
+                  <option value="">Select nature…</option>
+                  {NATURE_MARCHANDISE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
             </div>
 
             {/* Save error from storage (e.g. duplicate number) */}
@@ -471,11 +530,23 @@ const GROUPAGE_INPUT      = { width: "100%", padding: "9px 11px", fontSize: "0.8
 const GROUPAGE_ERROR_TEXT = { fontSize: "0.66rem", color: "#D6492F", fontFamily: MONO };
 const CURRENCY_SUFFIX     = { position: "absolute", right: 11, color: "#A8A39A", fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.04em", pointerEvents: "none" };
 const SUBMIT_ROW          = { display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 };
-const SUCCESS_WRAP        = { maxWidth: 480, margin: "0 auto", padding: "120px 24px", textAlign: "center" };
+const SUCCESS_WRAP        = { maxWidth: 620, margin: "0 auto", padding: "80px 24px 100px", textAlign: "center" };
 const SUCCESS_ICON        = { width: 56, height: 56, borderRadius: "50%", background: "#EAF3DE", color: "#3B6D11", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" };
 const SUCCESS_H1          = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "1.6rem", color: "#0B2A3D", marginBottom: 10 };
 const SUCCESS_SUB         = { fontSize: "0.9rem", color: "#6E7F87", lineHeight: 1.6, marginBottom: 28 };
-const SUCCESS_ACTIONS     = { display: "flex", gap: 12, justifyContent: "center" };
+const SUCCESS_ACTIONS     = { display: "flex", gap: 12, justifyContent: "center", marginTop: 8 };
+
+/* Recap card styles (confirmation screen) */
+const RECAP_CARD       = { background: "#fff", border: "1px solid rgba(11,42,61,0.14)", borderRadius: 12, marginBottom: 18, overflow: "hidden", textAlign: "left" };
+const RECAP_CARD_HEAD  = { display: "flex", alignItems: "center", gap: 8, padding: "13px 18px", borderBottom: "1px solid rgba(11,42,61,0.1)", background: "#FAF8F2" };
+const RECAP_CARD_TITLE = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "0.92rem", color: "#0B2A3D" };
+const RECAP_CARD_BODY  = { padding: "6px 18px 12px" };
+const RECAP_ROW        = { display: "flex", justifyContent: "space-between", gap: 12, padding: "7px 0", borderBottom: "1px solid rgba(11,42,61,0.06)" };
+const RECAP_LABEL      = { fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.04em", textTransform: "uppercase", color: "#8a8680" };
+const RECAP_VALUE      = { fontSize: "0.85rem", color: "#1C2B33", fontWeight: 500, textAlign: "right" };
+const RECAP_GROUPAGE      = { display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid rgba(11,42,61,0.08)" };
+const RECAP_GROUPAGE_BADGE = { flexShrink: 0, fontFamily: MONO, fontSize: "0.68rem", fontWeight: 700, color: "#185FA5", background: "#E6F1FB", padding: "3px 9px", borderRadius: 20, height: "fit-content" };
+const RECAP_GROUPAGE_GRID = { flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: 20 };
 
 const CSS = `
 .pva-back { display: inline-flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(220,230,234,0.85); background: rgba(11,42,61,0.35); border: 1px solid rgba(255,255,255,0.18); cursor: pointer; padding: 8px 14px; border-radius: 6px; transition: background .15s, color .15s; }

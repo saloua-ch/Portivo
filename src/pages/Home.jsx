@@ -1,19 +1,45 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { geoEqualEarth, geoPath, geoGraticule } from "d3-geo";
+import { feature } from "topojson-client";
+import { Ship, Plane } from "lucide-react";
+import worldTopology from "world-atlas/countries-110m.json";
 
 /**
  * Portivo — maritime port-operations landing page
  *
- * Self-contained component: inline <style> block + inline SVG icons.
- * Loads Fraunces / IBM Plex Sans / IBM Plex Mono from Google Fonts.
- *
  * Place at: src/pages/Home.jsx
  * Rendered at "/" as a full-screen route (no Sidebar/AppShell).
  *
- * Nav links and "Ports of call" cards route via react-router-dom <Link>.
- * The hero CTA and "Log" scroll indicator stay as in-page <a href="#calls">
- * anchors since they jump to a section on this same page.
+ * Hero map uses d3-geo directly (no react-simple-maps — that package
+ * ships a "browser" field pointing at a UMD bundle with stray
+ * require() interop code that breaks under Vite's dev server; d3-geo
+ * and topojson-client are clean ES modules with no such issue) to
+ * project real world geography from the world-atlas topojson package,
+ * and lucide-react for the boat/plane glyphs. Requires:
+ *   npm install d3-geo topojson-client world-atlas lucide-react
  */
+
+const WIDTH = 1440;
+const HEIGHT = 900;
+
+// One shared projection + path generator for the whole map. Centered
+// roughly on the Mediterranean so Tunis sits near the visual middle
+// while Asia, the Americas, and Australia remain visible for context.
+const projection = geoEqualEarth()
+  .rotate([-12, -6, 0])
+  .scale(205)
+  .translate([WIDTH / 2, HEIGHT / 2]);
+
+const pathGenerator = geoPath(projection);
+const graticuleLines = geoGraticule()();
+
+// world-atlas ships a TopoJSON topology; convert its one object
+// ("countries") into GeoJSON features once, at module load.
+const countries = feature(
+  worldTopology,
+  worldTopology.objects.countries
+).features;
 
 const IconShip = (props) => (
   <svg viewBox="0 0 24 24" className="icon" {...props}>
@@ -127,101 +153,74 @@ const IconArchive = (props) => (
   </svg>
 );
 
-/* ---- stylized world continents, drawn on the 1440x900 hero viewBox ----
-   Not geographically precise — hand-simplified silhouettes, oriented so
-   Europe / the Mediterranean / North Africa (Tunis) sit at the visual
-   center, with Asia sprawling to the right and the Americas + Australia
-   giving the backdrop genuine "whole world" context. */
-const CONTINENTS = [
-  {
-    id: "north-america",
-    d: "M60,60 C140,18 268,36 306,92 C332,132 300,162 322,204 C344,250 282,262 262,312 C232,364 158,382 118,342 C88,308 60,296 48,244 C26,182 18,108 60,60 Z",
-  },
-  {
-    id: "south-america",
-    d: "M222,408 C284,420 302,462 312,522 C324,602 344,662 302,724 C270,772 240,802 208,792 C178,782 190,700 170,640 C150,580 158,498 180,448 C192,428 202,414 222,408 Z",
-  },
-  {
-    id: "europe",
-    d: "M648,88 C700,66 762,78 804,66 C844,56 872,90 860,122 C850,150 882,160 870,192 C858,222 820,210 800,232 C780,252 750,240 728,262 C708,278 678,262 668,230 C658,200 628,190 630,158 C632,128 630,110 648,88 Z",
-  },
-  {
-    id: "africa",
-    d: "M700,300 C762,288 822,300 852,322 C892,352 902,402 890,452 C880,524 900,582 870,642 C850,692 830,732 800,762 C780,782 758,792 738,772 C720,752 730,712 710,682 C690,652 670,602 660,552 C650,502 630,452 640,402 C650,352 660,322 700,300 Z",
-  },
-  {
-    id: "asia",
-    d: "M900,80 C1000,48 1150,58 1252,90 C1352,120 1440,142 1440,202 L1440,402 C1400,422 1380,462 1340,482 C1300,502 1260,522 1220,502 C1180,482 1150,502 1110,482 C1070,462 1050,422 1020,402 C990,382 950,372 930,342 C900,302 880,262 870,222 C860,182 870,120 900,80 Z",
-  },
-  {
-    id: "australia",
-    d: "M1200,682 C1262,660 1342,672 1372,702 C1402,732 1390,772 1360,792 C1320,812 1258,800 1220,780 C1190,762 1180,712 1200,682 Z",
-  },
-];
-
-/* ---- vehicles: boats have hull + mast + sail + jib + flag,
-   planes have a fuselage + wings + tail — each drawn around the
-   origin so animateMotion + rotate="auto" carries them naturally. ---- */
-const BOAT_PARTS = {
-  hull: "M-24,11 Q0,25 24,11 L17,18 Q0,29 -17,18 Z",
-  mast: "M-1.6,11 L-1.6,-30 L1.6,-30 L1.6,11 Z",
-  sail: "M1.6,-30 L21,9 L1.6,9 Z",
-  jib: "M-1.6,-17 L-14,9 L-1.6,9 Z",
-  flag: "M1.6,-30 L12,-25.5 L1.6,-21 Z",
+/* ---- real-world coordinates as [longitude, latitude] ---- */
+const TUNIS = [10.18, 36.81];
+const CITIES = {
+  shanghai: [121.47, 31.23],
+  genoa: [8.93, 44.41],
+  valencia: [-0.38, 39.47],
+  rome: [12.5, 41.9],
+  istanbul: [28.98, 41.01],
 };
 
-const PLANE_PARTS = {
-  fuselage: "M-30,0 L17,-4 L28,0 L17,4 Z",
-  wingTop: "M-3,-2 L-18,-24 L2,-6 Z",
-  wingBottom: "M-3,2 L-18,24 L2,6 Z",
-  tailTop: "M-26,0 L-35,-10 L-21,-2 Z",
-  tailBottom: "M-26,0 L-35,10 L-21,2 Z",
-};
-
-/* ---- lanes: each one starts well outside the 1440x900 viewBox so
-   vehicles visibly cross the map's border, converging on Tunis. ---- */
-const LANES = [
-  {
-    id: "lane-shanghai",
-    vehicle: "boat",
-    d: "M1560,240 C 1250,180 980,250 748,308",
-    color: "var(--teal)",
-    dur: "30s",
-    begin: "0s",
-  },
-  {
-    id: "lane-genoa",
-    vehicle: "boat",
-    d: "M792,60 C 772,150 758,240 748,308",
-    color: "var(--amber)",
-    dur: "17s",
-    begin: "-6s",
-  },
-  {
-    id: "lane-valencia",
-    vehicle: "boat",
-    d: "M660,60 C 690,160 722,250 748,308",
-    color: "var(--coral)",
-    dur: "16s",
-    begin: "-11s",
-  },
-  {
-    id: "lane-rome",
-    vehicle: "plane",
-    d: "M804,-100 C 786,90 764,220 748,308",
-    color: "var(--teal-soft)",
-    dur: "13s",
-    begin: "-3s",
-  },
-  {
-    id: "lane-istanbul",
-    vehicle: "plane",
-    d: "M900,-100 C 858,100 796,220 748,308",
-    color: "var(--amber-soft)",
-    dur: "14s",
-    begin: "-9s",
-  },
+const ROUTES = [
+  { id: "shanghai", vehicle: "boat", from: CITIES.shanghai, color: "var(--teal)", duration: 34, offset: 0 },
+  { id: "genoa", vehicle: "boat", from: CITIES.genoa, color: "var(--amber)", duration: 16, offset: 5 },
+  { id: "valencia", vehicle: "boat", from: CITIES.valencia, color: "var(--coral)", duration: 17, offset: 10 },
+  { id: "rome", vehicle: "plane", from: CITIES.rome, color: "var(--teal-soft)", duration: 9, offset: 2 },
+  { id: "istanbul", vehicle: "plane", from: CITIES.istanbul, color: "var(--amber-soft)", duration: 10, offset: 6 },
 ];
+
+/**
+ * Animates a marker's projected [x, y] position along the straight
+ * line from `from` to TUNIS (interpolated in lon/lat space, then
+ * projected — a reasonable approximation at this scale), looping.
+ * Deliberately does NOT rotate the icon — ship and plane glyphs stay
+ * upright at all times, which reads cleanly and avoids the
+ * "tumbling" artifacts that icon-rotation-along-a-path can produce.
+ * Respects prefers-reduced-motion.
+ */
+function useRoutePosition(from, to, duration, offset) {
+  const [t, setT] = React.useState(() => (offset % duration) / duration);
+  const frameRef = React.useRef();
+  const startRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (reduce) return undefined;
+
+    const tick = (now) => {
+      if (startRef.current === null) startRef.current = now - offset * 1000;
+      const elapsed = now - startRef.current;
+      const cycleMs = duration * 1000;
+      const progress = ((elapsed % cycleMs) + cycleMs) % cycleMs / cycleMs;
+      setT(progress);
+      frameRef.current = requestAnimationFrame(tick);
+    };
+    frameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [duration, offset]);
+
+  const lon = from[0] + (to[0] - from[0]) * t;
+  const lat = from[1] + (to[1] - from[1]) * t;
+  return projection([lon, lat]);
+}
+
+function RouteVehicle({ from, to, duration, offset, color, vehicle }) {
+  const [x, y] = useRoutePosition(from, to, duration, offset);
+  const Icon = vehicle === "plane" ? Plane : Ship;
+  const size = vehicle === "plane" ? 20 : 22;
+
+  return (
+    <g className="vehicle-icon" transform={`translate(${x}, ${y})`}>
+      <Icon x={-size / 2} y={-size / 2} width={size} height={size} color={color} strokeWidth={1.75} />
+    </g>
+  );
+}
 
 const PORTS_OF_CALL = [
   {
@@ -309,73 +308,66 @@ export default function Home() {
       <style>{CSS}</style>
 
       <section className="hero">
-        <svg
-          className="hero-chart"
-          viewBox="0 0 1440 900"
-          preserveAspectRatio="xMidYMid slice"
-          aria-hidden="true"
-        >
-          <rect width="1440" height="900" fill="var(--ink)" />
+        <div className="hero-map">
+          <svg
+            viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+            preserveAspectRatio="xMidYMid slice"
+            aria-hidden="true"
+          >
+            <g className="graticule">
+              <path d={pathGenerator(graticuleLines)} />
+            </g>
 
-          {/* world continents */}
-          <g className="continents">
-            {CONTINENTS.map((c) => (
-              <path key={c.id} d={c.d} />
+            <g className="land">
+              {countries.map((country, i) => (
+                <path key={country.id ?? i} d={pathGenerator(country)} />
+              ))}
+            </g>
+
+            {ROUTES.map((route) => {
+              const line = {
+                type: "LineString",
+                coordinates: [route.from, TUNIS],
+              };
+              return (
+                <path
+                  key={route.id}
+                  d={pathGenerator(line)}
+                  fill="none"
+                  stroke={route.color}
+                  strokeWidth={1.4}
+                  strokeDasharray="1 6"
+                  strokeLinecap="round"
+                  opacity={0.55}
+                />
+              );
+            })}
+
+            {(() => {
+              const [tx, ty] = projection(TUNIS);
+              return (
+                <g transform={`translate(${tx}, ${ty})`}>
+                  <circle className="tunis-ring" r={5} fill="var(--coral)" opacity={0.5} />
+                  <circle r={5} fill="var(--coral)" />
+                </g>
+              );
+            })()}
+
+            {ROUTES.map((route) => (
+              <RouteVehicle
+                key={route.id}
+                from={route.from}
+                to={TUNIS}
+                duration={route.duration}
+                offset={route.offset}
+                color={route.color}
+                vehicle={route.vehicle}
+              />
             ))}
-          </g>
+          </svg>
+        </div>
 
-          {/* shipping / flight lanes */}
-          {LANES.map((lane) => (
-            <path
-              key={lane.id}
-              id={lane.id}
-              d={lane.d}
-              fill="none"
-              stroke={lane.color}
-              strokeWidth="2"
-              strokeDasharray="2 8"
-              opacity="0.5"
-            />
-          ))}
-
-          {/* Tunis marker */}
-          <g transform="translate(748,308)">
-            <circle className="tunis-ring" r="7" fill="var(--coral)" opacity="0.5" />
-            <circle r="7" fill="var(--coral)" />
-          </g>
-
-          {/* vehicles: boats on sea lanes, planes on air lanes */}
-          <g className="ship-anim">
-            {LANES.map((lane) => (
-              <g
-                className={`vehicle ${lane.vehicle}`}
-                key={lane.id}
-                style={{ "--vehicle-accent": lane.color }}
-              >
-                <animateMotion dur={lane.dur} repeatCount="indefinite" rotate="auto" begin={lane.begin}>
-                  <mpath href={`#${lane.id}`} />
-                </animateMotion>
-                {lane.vehicle === "plane" ? (
-                  <>
-                    <path className="wing" d={PLANE_PARTS.wingTop} />
-                    <path className="wing" d={PLANE_PARTS.wingBottom} />
-                    <path className="tail" d={PLANE_PARTS.tailTop} />
-                    <path className="tail" d={PLANE_PARTS.tailBottom} />
-                    <path className="fuselage" d={PLANE_PARTS.fuselage} />
-                  </>
-                ) : (
-                  <>
-                    <path className="jib" d={BOAT_PARTS.jib} />
-                    <path className="sail" d={BOAT_PARTS.sail} />
-                    <path className="mast" d={BOAT_PARTS.mast} />
-                    <path className="flag" d={BOAT_PARTS.flag} />
-                    <path className="hull" d={BOAT_PARTS.hull} />
-                  </>
-                )}
-              </g>
-            ))}
-          </g>
-        </svg>
+        <div className="hero-scrim" aria-hidden="true" />
 
         <div className="hero-topbar">
           <span className="brand">Portivo</span>
@@ -466,9 +458,10 @@ const CSS = `
 .portivo-root{
   --ink: #0B2A3D;
   --ink-deep: #082030;
-  --ink-line: #18435A;
-  --land: #123A4E;
-  --land-line: #2C6480;
+  --ink-line: rgba(111,139,156,0.22);
+  --land: #E4D9B4;
+  --land-hover: #EFE6C6;
+  --land-line: #8A9CA8;
   --paper: #ECE7DA;
   --paper-2: #E2DCCB;
   --text-on-paper: #1C2B33;
@@ -505,11 +498,51 @@ const CSS = `
   flex-direction:column;
 }
 
-.portivo-root .hero-chart{
+.portivo-root .hero-map{
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
+}
+.portivo-root .hero-map svg{
+  width:100%;
+  height:100%;
+  display:block;
+}
+
+.portivo-root .land path{
+  fill: var(--land);
+  stroke: var(--land-line);
+  stroke-width: 0.6;
+  transition: fill 0.2s ease;
+}
+.portivo-root .land path:hover{ fill: var(--land-hover); }
+
+.portivo-root .graticule path{
+  fill: none;
+  stroke: var(--ink-line);
+  stroke-width: 0.6;
+}
+
+.portivo-root .vehicle-icon{
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+}
+
+@media (prefers-reduced-motion: no-preference){
+  .portivo-root .tunis-ring{ animation:portivo-pulse 3.2s ease-out infinite; transform-origin:center; transform-box:fill-box; }
+}
+@keyframes portivo-pulse{
+  0%{ transform:scale(0.6); opacity:0.7; }
+  100%{ transform:scale(3.2); opacity:0; }
+}
+
+.portivo-root .hero-scrim{
+  position:absolute;
+  top:0; left:0; right:0;
+  height:220px;
+  background:linear-gradient(to bottom, rgba(8,32,48,0.85) 0%, rgba(8,32,48,0.4) 55%, rgba(8,32,48,0) 100%);
+  z-index:1;
+  pointer-events:none;
 }
 
 .portivo-root .hero-topbar{
@@ -657,46 +690,6 @@ const CSS = `
 .portivo-root .hero-scroll .line{
   width:1px; height:36px;
   background:linear-gradient(to bottom, var(--text-on-ink-muted), transparent);
-}
-
-/* world continents */
-.portivo-root .continents path{
-  fill: var(--land);
-  stroke: var(--land-line);
-  stroke-width: 1.4;
-  opacity: 0.92;
-}
-
-/* vehicles: boats + planes, bigger and colored per route */
-.portivo-root .vehicle{
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
-}
-.portivo-root .vehicle .hull,
-.portivo-root .vehicle .mast,
-.portivo-root .vehicle .fuselage{
-  fill: var(--text-on-ink);
-}
-.portivo-root .vehicle .sail,
-.portivo-root .vehicle .wing{
-  fill: var(--vehicle-accent, var(--teal-soft));
-}
-.portivo-root .vehicle .jib,
-.portivo-root .vehicle .tail{
-  fill: var(--vehicle-accent, var(--teal-soft));
-  opacity: 0.8;
-}
-.portivo-root .vehicle .flag{
-  fill: var(--coral);
-}
-@media (prefers-reduced-motion: reduce){
-  .portivo-root .ship-anim{ display:none; }
-}
-@media (prefers-reduced-motion: no-preference){
-  .portivo-root .tunis-ring{ animation:portivo-pulse 3.2s ease-out infinite; transform-origin:center; transform-box:fill-box; }
-}
-@keyframes portivo-pulse{
-  0%{ transform:scale(0.5); opacity:0.7; }
-  100%{ transform:scale(2.6); opacity:0; }
 }
 
 /* ---------- LEDGER ---------- */
