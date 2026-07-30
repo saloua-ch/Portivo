@@ -247,10 +247,36 @@ export const translations = {
       back: 'Back',
       optional: 'optional',
 
+      // Wizard / stepper
+      stepContainerLabel: 'Container',
+      stepGroupagesLabel: 'Groupages',
+      stepReviewLabel: 'Review',
+      stepOf: 'Step {current} of {total}',
+      continueButton: 'Continue',
+      backStepButton: 'Back',
+      editStep: 'Edit',
+      progressComplete: '{pct}% complete',
+      reviewTitle: 'Review your entry',
+      reviewSubtitle: "Take a quick look before saving — you can go back and edit anything.",
+
+      // Speed shortcuts
+      keyboardHintContinue: 'Tip: Ctrl+Enter to continue',
+      keyboardHintSubmit: 'Tip: Ctrl+Enter to save',
+      draftFoundTitle: 'Pick up where you left off?',
+      draftFoundSub: 'You have an unsaved container entry from earlier.',
+      restoreDraft: 'Restore',
+      discardDraft: 'Start fresh',
+      duplicateGroupageBtn: 'Duplicate',
+
+      // Live checks
+      liveDuplicateWarning: 'A container with this number already exists.',
+      checksumMismatch: "Check digit doesn't match — double-check this number.",
+      checkingEllipsis: 'Checking…',
+
       // Container details card
       containerDetailsTitle: 'Container details',
       containerNumber: 'Container number',
-      containerNumberPlaceholder: 'e.g. 1234ABCDEFG',
+      containerNumberPlaceholder: 'e.g. MSCU7654321',
       agent: 'Agent',
       agentPlaceholder: 'Type agent name…',
       shippingLine: 'Shipping line',
@@ -295,7 +321,7 @@ export const translations = {
 
       // Validation messages
       errContainerNumberRequired: 'Container number is required',
-      errContainerNumberFormat: 'Must be 4 digits followed by 7 letters (e.g. 1234ABCDEFG)',
+      errContainerNumberFormat: 'Must be 4 letters followed by 7 digits (e.g. MSCU7654321)',
       errAgentRequired: 'Enter the responsible agent',
       errPodRequired: 'Select an arrival port (POD)',
       errPodSameAsPol: "Discharge port (POD) can't be the same as the loading port (POL)",
@@ -741,10 +767,36 @@ export const translations = {
       back: 'Retour',
       optional: 'optionnel',
 
+      // Wizard / stepper
+      stepContainerLabel: 'Conteneur',
+      stepGroupagesLabel: 'Groupages',
+      stepReviewLabel: 'Vérification',
+      stepOf: 'Étape {current} sur {total}',
+      continueButton: 'Continuer',
+      backStepButton: 'Retour',
+      editStep: 'Modifier',
+      progressComplete: '{pct}% complété',
+      reviewTitle: 'Vérifiez votre saisie',
+      reviewSubtitle: "Un dernier coup d'œil avant d'enregistrer — vous pouvez revenir en arrière pour tout modifier.",
+
+      // Speed shortcuts
+      keyboardHintContinue: 'Astuce : Ctrl+Entrée pour continuer',
+      keyboardHintSubmit: 'Astuce : Ctrl+Entrée pour enregistrer',
+      draftFoundTitle: 'Reprendre là où vous vous étiez arrêté ?',
+      draftFoundSub: 'Vous avez une saisie de conteneur non enregistrée.',
+      restoreDraft: 'Restaurer',
+      discardDraft: 'Recommencer',
+      duplicateGroupageBtn: 'Dupliquer',
+
+      // Live checks
+      liveDuplicateWarning: 'Un conteneur avec ce numéro existe déjà.',
+      checksumMismatch: 'Le chiffre de contrôle ne correspond pas — vérifiez ce numéro.',
+      checkingEllipsis: 'Vérification…',
+
       // Container details card
       containerDetailsTitle: 'Détails du conteneur',
       containerNumber: 'Numéro de conteneur',
-      containerNumberPlaceholder: 'ex. 1234ABCDEFG',
+      containerNumberPlaceholder: 'ex. MSCU7654321',
       agent: 'Agent',
       agentPlaceholder: "Saisir le nom de l'agent…",
       shippingLine: 'Ligne maritime',
@@ -789,7 +841,7 @@ export const translations = {
 
       // Validation messages
       errContainerNumberRequired: 'Le numéro de conteneur est requis',
-      errContainerNumberFormat: 'Doit être 4 chiffres suivis de 7 lettres (ex. 1234ABCDEFG)',
+      errContainerNumberFormat: 'Doit être 4 lettres suivies de 7 chiffres (ex. MSCU7654321)',
       errAgentRequired: "Indiquez l'agent responsable",
       errPodRequired: 'Sélectionnez un port de décharge (POD)',
       errPodSameAsPol: "Le port de décharge (POD) ne peut pas être identique au port de chargement (POL)",
