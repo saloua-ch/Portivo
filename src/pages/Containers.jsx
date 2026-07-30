@@ -15,24 +15,25 @@ if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
   document.head.appendChild(l);
 }
 
-/* ── Status config ── */
+/* ── Status config (colors/icons only — labels are resolved via t() at render time) ── */
 const STATUS = {
-  in_transit:    { label: "In transit",    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: Ship },
-  customs:       { label: "In customs",    color: "#8a620d", bg: "#F0DDB3", pip: "#C9912B", Icon: ClipboardList },
-  arriving_soon: { label: "Arriving soon", color: "#0e4980", bg: "#B5D4F4", pip: "#185FA5", Icon: Anchor },
-  delivered:     { label: "Delivered",     color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: CheckCircle },
+  in_transit:    { labelKey: "inTransit",    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: Ship },
+  customs:       { labelKey: "customs",      color: "#8a620d", bg: "#F0DDB3", pip: "#C9912B", Icon: ClipboardList },
+  arriving_soon: { labelKey: "arrivingSoon", color: "#0e4980", bg: "#B5D4F4", pip: "#185FA5", Icon: Anchor },
+  delivered:     { labelKey: "delivered",    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: CheckCircle },
 };
 
 // Order shown in the per-card status dropdown
 const STATUS_OPTIONS = ["in_transit", "arriving_soon", "customs", "delivered"];
 
+// Filter bar config — labelKey maps to a containers.filterXxx translation key
 const FILTERS = [
-  { key: "all",           label: "All" },
-  { key: "attention",     label: "Needs attention", flag: true },
-  { key: "in_transit",    label: "In transit" },
-  { key: "customs",       label: "In customs" },
-  { key: "arriving_soon", label: "Arriving soon" },
-  { key: "delivered",     label: "Delivered" },
+  { key: "all",           labelKey: "filterAll" },
+  { key: "attention",     labelKey: "filterAttention", flag: true },
+  { key: "in_transit",    labelKey: "filterInTransit" },
+  { key: "customs",       labelKey: "filterCustoms" },
+  { key: "arriving_soon", labelKey: "filterArrivingSoon" },
+  { key: "delivered",     labelKey: "filterDelivered" },
 ];
 
 /* ── Helpers ── */
@@ -43,11 +44,11 @@ function diffDays(str) {
 function fmtShort(str) {
   return new Date(str).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
-function etaLabel(str) {
+function etaLabel(str, t) {
   const d = diffDays(str);
-  if (d < 0) return "Overdue";
-  if (d === 0) return "Today";
-  if (d === 1) return "Tomorrow";
+  if (d < 0) return t('containers.overdue');
+  if (d === 0) return t('containers.today');
+  if (d === 1) return t('containers.tomorrow');
   return fmtShort(str);
 }
 
@@ -85,7 +86,7 @@ export default function Containers() {
       await storage.updateContainer(containerId, { status: newStatus });
     } catch (err) {
       console.error("Failed to update status", err);
-      alert("Couldn't save the new status — please try again.");
+      alert(t('containers.statusUpdateFailed'));
     } finally {
       setSavingId(null);
     }
@@ -120,11 +121,11 @@ export default function Containers() {
   }, [containers, activeFilter, query, sortAsc]);
 
   const ledgerCells = [
-    { n: containers.length, label: "On file",    accent: "#2F7E6C" },
-    { n: counts.in_transit, label: t('containers.inTransit'), accent: "#2F7E6C" },
-    { n: counts.customs,    label: "Customs",    accent: "#C9912B" },
-    { n: counts.attention,  label: "Attention",  accent: "#D6492F" },
-    { n: counts.arriving_soon, label: "Arriving", accent: "#185FA5" },
+    { n: containers.length,     label: t('containers.onFile'),    accent: "#2F7E6C" },
+    { n: counts.in_transit,     label: t('containers.inTransit'), accent: "#2F7E6C" },
+    { n: counts.customs,        label: t('containers.customs'),   accent: "#C9912B" },
+    { n: counts.attention,      label: t('containers.attention'), accent: "#D6492F" },
+    { n: counts.arriving_soon,  label: t('containers.arriving'),  accent: "#185FA5" },
   ];
 
   return (
@@ -143,9 +144,9 @@ export default function Containers() {
         <span style={HERO_CREDIT}>Photo: Unsplash</span>
 
         <div style={HERO_CONTENT}>
-          <p style={EYEBROW}>Tunis–Goulette terminal · Fleet manifest</p>
+          <p style={EYEBROW}>{t('containers.heroEyebrow')}</p>
           <h1 style={H1}>{t('containers.title')}</h1>
-          <p style={HERO_SUB}>Every unit in the fleet — in transit, clearing customs, or delivered.</p>
+          <p style={HERO_SUB}>{t('containers.heroSubtitle')}</p>
         </div>
       </div>
 
@@ -176,17 +177,19 @@ export default function Containers() {
             />
           </div>
           <div style={TOTAL_LABEL}>
-            {loading ? t('common.loading') : `${filtered.length} ${t('containers.number')}${filtered.length !== 1 ? "s" : ""}`}
+            {loading
+              ? t('common.loading')
+              : `${filtered.length} ${filtered.length !== 1 ? t('containers.containerPlural') : t('containers.containerSingular')}`}
           </div>
           <button style={SORT_BTN} onClick={() => setSortAsc(v => !v)}>
             <ArrowUpDown size={13} aria-hidden="true" />
-            ETA {sortAsc ? "↑" : "↓"}
+            {t('containers.eta')} {sortAsc ? "↑" : "↓"}
           </button>
         </div>
 
         {/* Filters */}
         <div style={FILT_ROW} role="tablist">
-          {FILTERS.map(({ key, label, flag }) => {
+          {FILTERS.map(({ key, labelKey, flag }) => {
             const on = activeFilter === key;
             return (
               <button
@@ -196,7 +199,7 @@ export default function Containers() {
                 className={`pvc-filter${flag ? " flag" : ""}${on ? " on" : ""}`}
                 onClick={() => setActiveFilter(key)}
               >
-                {label}
+                {t(`containers.${labelKey}`)}
                 <span className={`pvc-badge${flag ? " flag" : ""}`}>{counts[key] ?? 0}</span>
               </button>
             );
@@ -212,7 +215,7 @@ export default function Containers() {
         ) : filtered.length === 0 ? (
           <div style={EMPTY}>
             <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} aria-hidden="true" />
-            <p>No containers match this filter.</p>
+            <p>{t('containers.noMatch')}</p>
           </div>
         ) : (
           <div style={GRID}>
@@ -263,16 +266,16 @@ export default function Containers() {
                         onChange={e => handleStatusChange(c.id, e.target.value)}
                         className="pvc-status-select"
                         style={{ ...TAG, background: cfg.bg, color: cfg.color, opacity: saving ? 0.6 : 1 }}
-                        aria-label={`Status for ${c.number}`}
+                        aria-label={`${t('containers.statusFor')} ${c.number}`}
                       >
                         {STATUS_OPTIONS.map(key => (
-                          <option key={key} value={key}>{STATUS[key].label}</option>
+                          <option key={key} value={key}>{t(`containers.${STATUS[key].labelKey}`)}</option>
                         ))}
                       </select>
                     </div>
                     <div style={{ ...ETA_ROW, color: ov ? "#D6492F" : "#6E7F87" }}>
                       <span style={{ ...PIP, background: ov ? "#D6492F" : cfg.pip }} />
-                      {etaLabel(c.eta)}
+                      {etaLabel(c.eta, t)}
                     </div>
                   </div>
                 </div>
@@ -283,8 +286,8 @@ export default function Containers() {
 
         {!loading && filtered.length > 0 && (
           <p style={FOOTER}>
-            {filtered.length} container{filtered.length !== 1 ? "s" : ""} shown
-            &nbsp;·&nbsp; sync {syncTime}
+            {filtered.length} {filtered.length !== 1 ? t('containers.containerPlural') : t('containers.containerSingular')} {t('containers.shown')}
+            &nbsp;·&nbsp; {t('containers.sync')} {syncTime}
           </p>
         )}
       </div>

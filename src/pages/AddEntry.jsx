@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 import {
   Plus, Trash2, Package, User, Calendar,
   CheckCircle, ArrowLeft, AlertCircle, Building2, Anchor, Ship,
@@ -82,7 +83,7 @@ function AutocompleteInput({ value, onChange, options, placeholder, icon: Icon, 
 }
 
 /* ── Hero ── */
-function Hero() {
+function Hero({ t }) {
   return (
     <div style={HERO_WRAP}>
       <img src="https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=1600&auto=format&fit=crop" alt="Container terminal" style={HERO_IMG} />
@@ -90,12 +91,12 @@ function Hero() {
       <div style={HERO_TINT} />
       <span style={HERO_CREDIT}>Photo: Unsplash</span>
       <div style={HERO_TEXT}>
-        <p style={EYEBROW}>Tunis-Goulette terminal · Manual entry</p>
-        <h1 style={H1}>Add a container</h1>
-        <p style={SUB}>Enter a container exactly as it would appear in your tracking sheet — one container, its route and dates, and every groupage inside it.</p>
+        <p style={EYEBROW}>{t('addEntry.heroEyebrow')}</p>
+        <h1 style={H1}>{t('addEntry.heroTitle')}</h1>
+        <p style={SUB}>{t('addEntry.heroSubtitle')}</p>
       </div>
       <button className="pva-back" onClick={() => window.history.back()} style={HERO_BACK}>
-        <ArrowLeft size={13} aria-hidden="true" /> Back
+        <ArrowLeft size={13} aria-hidden="true" /> {t('addEntry.back')}
       </button>
     </div>
   );
@@ -113,6 +114,7 @@ function RecapRow({ label, value }) {
 
 export default function AddEntry() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [containerNumber, setContainerNumber]   = useState("");
   const [agent, setAgent]                       = useState("");
@@ -137,26 +139,26 @@ export default function AddEntry() {
   const validate = () => {
     const e = {};
     const trimmedNumber = containerNumber.trim();
-    if (!trimmedNumber) e.containerNumber = "Container number is required";
-    else if (!CONTAINER_NUMBER_RE.test(trimmedNumber.replace(/\s+/g, ""))) e.containerNumber = "Must be 4 digits followed by 7 letters (e.g. 1234ABCDEFG)";
-    if (!agent.trim()) e.agent = "Enter the responsible agent";
-    if (!arrivalPort) e.arrivalPort = "Select an arrival port (POD)";
-    else if (origin.trim() && arrivalPort.trim().toLowerCase() === origin.trim().toLowerCase()) e.arrivalPort = "Discharge port (POD) can't be the same as the loading port (POL)";
-    if (!eta) e.eta = "Expected arrival date (Tunis) is required";
-    if (embarquementDate && eta && new Date(embarquementDate) >= new Date(eta)) e.embarquementDate = "Loading date must be before the arrival date (ETA)";
-    if (embarquementDate && magasinageDate && new Date(embarquementDate) >= new Date(magasinageDate)) e.magasinageDate = "Date de magasinage must be after the loading date";
-    if (magasinageDate && eta && new Date(magasinageDate) > new Date(eta)) e.magasinageDate = e.magasinageDate || "Date de magasinage can't be after the arrival date (ETA)";
+    if (!trimmedNumber) e.containerNumber = t('addEntry.errContainerNumberRequired');
+    else if (!CONTAINER_NUMBER_RE.test(trimmedNumber.replace(/\s+/g, ""))) e.containerNumber = t('addEntry.errContainerNumberFormat');
+    if (!agent.trim()) e.agent = t('addEntry.errAgentRequired');
+    if (!arrivalPort) e.arrivalPort = t('addEntry.errPodRequired');
+    else if (origin.trim() && arrivalPort.trim().toLowerCase() === origin.trim().toLowerCase()) e.arrivalPort = t('addEntry.errPodSameAsPol');
+    if (!eta) e.eta = t('addEntry.errEtaRequired');
+    if (embarquementDate && eta && new Date(embarquementDate) >= new Date(eta)) e.embarquementDate = t('addEntry.errEmbarquementBeforeEta');
+    if (embarquementDate && magasinageDate && new Date(embarquementDate) >= new Date(magasinageDate)) e.magasinageDate = t('addEntry.errMagasinageAfterEmbarquement');
+    if (magasinageDate && eta && new Date(magasinageDate) > new Date(eta)) e.magasinageDate = e.magasinageDate || t('addEntry.errMagasinageBeforeEta');
     const hasAtLeastOneGroupage = groupages.some(g => g.supplier.trim() && g.client.trim());
-    if (!hasAtLeastOneGroupage) e.groupages = "Add at least one groupage with a supplier and client";
+    if (!hasAtLeastOneGroupage) e.groupages = t('addEntry.errGroupagesRequired');
     const groupageErrors = {};
     groupages.forEach(g => {
       const gErr = {};
-      if (g.bookingDate && g.pickupDate && new Date(g.bookingDate) >= new Date(g.pickupDate)) gErr.pickupDate = "Pickup must be after the booking date";
-      if (!isValidTNDAmount(g.achat)) gErr.achat = "Enter a plain number (TND), e.g. 1500";
-      if (!isValidTNDAmount(g.vente)) gErr.vente = "Enter a plain number (TND), e.g. 1800";
+      if (g.bookingDate && g.pickupDate && new Date(g.bookingDate) >= new Date(g.pickupDate)) gErr.pickupDate = t('addEntry.errPickupAfterBooking');
+      if (!isValidTNDAmount(g.achat)) gErr.achat = t('addEntry.errAchatFormat');
+      if (!isValidTNDAmount(g.vente)) gErr.vente = t('addEntry.errVenteFormat');
       if (Object.keys(gErr).length > 0) groupageErrors[g.id] = gErr;
     });
-    if (Object.keys(groupageErrors).length > 0) { e.groupageFields = groupageErrors; e.groupages = e.groupages || "Fix the highlighted fields in the groupages below"; }
+    if (Object.keys(groupageErrors).length > 0) { e.groupageFields = groupageErrors; e.groupages = e.groupages || t('addEntry.errGroupagesFixHighlighted'); }
     return e;
   };
 
@@ -196,7 +198,7 @@ export default function AddEntry() {
       setSubmitted(true);
     } catch (err) {
       // storage throws if container number already exists
-      setSaveError(err.message || "Could not save container.");
+      setSaveError(err.message || t('addEntry.errSaveFailed'));
     } finally {
       setBusy(false);
     }
@@ -218,28 +220,28 @@ export default function AddEntry() {
         <style>{CSS}</style>
         <div style={SUCCESS_WRAP}>
           <div style={SUCCESS_ICON}><CheckCircle size={28} /></div>
-          <h1 style={SUCCESS_H1}>Container added</h1>
+          <h1 style={SUCCESS_H1}>{t('addEntry.successTitle')}</h1>
           <p style={SUCCESS_SUB}>
             <span style={{ fontFamily: MONO, fontWeight: 600, color: "#1C2B33" }}>{savedContainer.number}</span>
-            {" "}has been saved with {validGroupageCount} groupage{validGroupageCount !== 1 ? "s" : ""}. Here's what was recorded:
+            {" "}{t('addEntry.successSaved')} {validGroupageCount} {validGroupageCount !== 1 ? t('addEntry.successGroupagePlural') : t('addEntry.successGroupageSingular')}. {t('addEntry.successRecorded')}
           </p>
 
           {/* Recap card — container details */}
           <div style={RECAP_CARD}>
             <div style={RECAP_CARD_HEAD}>
               <Package size={14} style={{ color: "#2F7E6C" }} />
-              <span style={RECAP_CARD_TITLE}>Container details</span>
+              <span style={RECAP_CARD_TITLE}>{t('addEntry.recapContainerDetailsTitle')}</span>
             </div>
             <div style={RECAP_CARD_BODY}>
-              <RecapRow label="Container #" value={<span style={{ fontFamily: MONO }}>{savedContainer.number}</span>} />
-              <RecapRow label="Agent" value={agent} />
-              <RecapRow label="Shipping line" value={carrier} />
-              <RecapRow label="POL" value={origin} />
-              <RecapRow label="POD" value={arrivalPort} />
-              <RecapRow label="Nature marchandise" value={natureMarchandise} />
-              <RecapRow label="Date d'embarquement" value={formatDate(embarquementDate)} />
-              <RecapRow label="ETA (Tunis)" value={formatDate(eta)} />
-              <RecapRow label="Date de magasinage" value={formatDate(magasinageDate)} />
+              <RecapRow label={t('addEntry.recapContainerNumber')} value={<span style={{ fontFamily: MONO }}>{savedContainer.number}</span>} />
+              <RecapRow label={t('addEntry.recapAgent')} value={agent} />
+              <RecapRow label={t('addEntry.recapShippingLine')} value={carrier} />
+              <RecapRow label={t('addEntry.recapPol')} value={origin} />
+              <RecapRow label={t('addEntry.recapPod')} value={arrivalPort} />
+              <RecapRow label={t('addEntry.recapNature')} value={natureMarchandise} />
+              <RecapRow label={t('addEntry.recapEmbarquement')} value={formatDate(embarquementDate)} />
+              <RecapRow label={t('addEntry.recapEta')} value={formatDate(eta)} />
+              <RecapRow label={t('addEntry.recapMagasinage')} value={formatDate(magasinageDate)} />
             </div>
           </div>
 
@@ -248,20 +250,20 @@ export default function AddEntry() {
             <div style={RECAP_CARD}>
               <div style={RECAP_CARD_HEAD}>
                 <Package size={14} style={{ color: "#185FA5" }} />
-                <span style={RECAP_CARD_TITLE}>Groupages ({savedGroupages.length})</span>
+                <span style={RECAP_CARD_TITLE}>{t('addEntry.recapGroupagesTitle')} ({savedGroupages.length})</span>
               </div>
               <div style={RECAP_CARD_BODY}>
                 {savedGroupages.map((g, i) => (
                   <div key={i} style={RECAP_GROUPAGE}>
                     <span style={RECAP_GROUPAGE_BADGE}>{String(i + 1).padStart(2, "0")}</span>
                     <div style={RECAP_GROUPAGE_GRID}>
-                      <RecapRow label="Fournisseur" value={g.supplier} />
-                      <RecapRow label="Client" value={g.client} />
-                      <RecapRow label="Réf. client" value={g.clientRef} />
-                      <RecapRow label="Poids" value={g.weight ? `${g.weight} kg` : ""} />
-                      <RecapRow label="Colis" value={g.packages} />
-                      <RecapRow label="Achat" value={g.achat ? `${g.achat} TND` : ""} />
-                      <RecapRow label="Vente" value={g.vente ? `${g.vente} TND` : ""} />
+                      <RecapRow label={t('addEntry.recapFournisseur')} value={g.supplier} />
+                      <RecapRow label={t('addEntry.recapClient')} value={g.client} />
+                      <RecapRow label={t('addEntry.recapClientRef')} value={g.clientRef} />
+                      <RecapRow label={t('addEntry.recapPoids')} value={g.weight ? `${g.weight} kg` : ""} />
+                      <RecapRow label={t('addEntry.recapColis')} value={g.packages} />
+                      <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} TND` : ""} />
+                      <RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} TND` : ""} />
                     </div>
                   </div>
                 ))}
@@ -270,8 +272,8 @@ export default function AddEntry() {
           )}
 
           <div style={SUCCESS_ACTIONS}>
-            <button className="pva-btn-secondary" onClick={resetForm}>Add another container</button>
-            <button className="pva-btn-primary" onClick={() => navigate(`/containers/${savedContainer.id}`)}>View container</button>
+            <button className="pva-btn-secondary" onClick={resetForm}>{t('addEntry.addAnother')}</button>
+            <button className="pva-btn-primary" onClick={() => navigate(`/containers/${savedContainer.id}`)}>{t('addEntry.viewContainer')}</button>
           </div>
         </div>
       </div>
@@ -281,7 +283,7 @@ export default function AddEntry() {
   return (
     <div style={ROOT}>
       <style>{CSS}</style>
-      <Hero />
+      <Hero t={t} />
 
       <form onSubmit={handleSubmit} style={FORM_WRAP}>
 
@@ -289,77 +291,77 @@ export default function AddEntry() {
         <div style={CARD}>
           <div style={CARD_HEAD}>
             <Package size={15} style={{ color: "#2F7E6C" }} />
-            <span style={CARD_TITLE}>Container details</span>
+            <span style={CARD_TITLE}>{t('addEntry.containerDetailsTitle')}</span>
           </div>
           <div style={CARD_BODY}>
 
             <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
-                <label style={LABEL}>Container number <span style={REQUIRED}>*</span></label>
-                <input type="text" value={containerNumber} onChange={e => setContainerNumber(e.target.value)} placeholder="e.g. 1234ABCDEFG" style={{ ...INPUT, ...(errors.containerNumber ? INPUT_ERROR : {}) }} className="pva-input" />
+                <label style={LABEL}>{t('addEntry.containerNumber')} <span style={REQUIRED}>*</span></label>
+                <input type="text" value={containerNumber} onChange={e => setContainerNumber(e.target.value)} placeholder={t('addEntry.containerNumberPlaceholder')} style={{ ...INPUT, ...(errors.containerNumber ? INPUT_ERROR : {}) }} className="pva-input" />
                 {errors.containerNumber && <span style={ERROR_TEXT}>{errors.containerNumber}</span>}
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>Agent <span style={REQUIRED}>*</span></label>
-                <AutocompleteInput value={agent} onChange={setAgent} options={AGENTS} placeholder="Type agent name…" icon={User} error={errors.agent} />
+                <label style={LABEL}>{t('addEntry.agent')} <span style={REQUIRED}>*</span></label>
+                <AutocompleteInput value={agent} onChange={setAgent} options={AGENTS} placeholder={t('addEntry.agentPlaceholder')} icon={User} error={errors.agent} />
                 {errors.agent && <span style={ERROR_TEXT}>{errors.agent}</span>}
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>Shipping line</label>
-                <AutocompleteInput value={carrier} onChange={setCarrier} options={CARRIERS} placeholder="Type carrier name…" icon={Ship} />
+                <label style={LABEL}>{t('addEntry.shippingLine')}</label>
+                <AutocompleteInput value={carrier} onChange={setCarrier} options={CARRIERS} placeholder={t('addEntry.shippingLinePlaceholder')} icon={Ship} />
               </div>
             </div>
 
             <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
-                <label style={LABEL}>POL — port of loading</label>
-                <AutocompleteInput value={origin} onChange={setOrigin} options={ORIGIN_PORTS} placeholder="Type origin port…" icon={Building2} />
+                <label style={LABEL}>{t('addEntry.pol')}</label>
+                <AutocompleteInput value={origin} onChange={setOrigin} options={ORIGIN_PORTS} placeholder={t('addEntry.polPlaceholder')} icon={Building2} />
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>POD — port of discharge <span style={REQUIRED}>*</span></label>
+                <label style={LABEL}>{t('addEntry.pod')} <span style={REQUIRED}>*</span></label>
                 <div style={SELECT_WRAP}>
                   <Anchor size={14} style={SELECT_ICON} />
                   <select value={arrivalPort} onChange={e => setArrivalPort(e.target.value)} style={{ ...SELECT, ...(errors.arrivalPort ? INPUT_ERROR : {}) }} className="pva-input">
-                    <option value="">Select a port…</option>
+                    <option value="">{t('addEntry.podSelectPlaceholder')}</option>
                     {ARRIVAL_PORTS.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
                 {errors.arrivalPort && <span style={ERROR_TEXT}>{errors.arrivalPort}</span>}
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>Date d'embarquement</label>
+                <label style={LABEL}>{t('addEntry.dateEmbarquement')}</label>
                 <div style={SELECT_WRAP}>
                   <Calendar size={14} style={SELECT_ICON} />
                   <input type="date" value={embarquementDate} onChange={e => setEmbarquementDate(e.target.value)} style={{ ...SELECT, ...(errors.embarquementDate ? INPUT_ERROR : {}) }} className="pva-input" />
                 </div>
                 {errors.embarquementDate && <span style={ERROR_TEXT}>{errors.embarquementDate}</span>}
-                <span style={HELP_TEXT}>Date the container was loaded onto the vessel.</span>
+                <span style={HELP_TEXT}>{t('addEntry.dateEmbarquementHelp')}</span>
               </div>
             </div>
 
             <div style={FIELD_ROW_3} className="pva-field-row-3">
               <div style={FIELD}>
-                <label style={LABEL}>Date d'arrivée Tunis (ETA) <span style={REQUIRED}>*</span></label>
+                <label style={LABEL}>{t('addEntry.eta')} <span style={REQUIRED}>*</span></label>
                 <div style={SELECT_WRAP}>
                   <Calendar size={14} style={SELECT_ICON} />
                   <input type="date" value={eta} onChange={e => setEta(e.target.value)} style={{ ...SELECT, ...(errors.eta ? INPUT_ERROR : {}) }} className="pva-input" />
                 </div>
                 {errors.eta && <span style={ERROR_TEXT}>{errors.eta}</span>}
-                <span style={HELP_TEXT}>This is the date you'll get reminded to confirm — your "rappel".</span>
+                <span style={HELP_TEXT}>{t('addEntry.etaHelp')}</span>
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>Date de magasinage <span style={OPTIONAL_TAG}>optional</span></label>
+                <label style={LABEL}>{t('addEntry.dateMagasinage')} <span style={OPTIONAL_TAG}>{t('addEntry.optional')}</span></label>
                 <div style={SELECT_WRAP}>
                   <Calendar size={14} style={SELECT_ICON} />
                   <input type="date" value={magasinageDate} onChange={e => setMagasinageDate(e.target.value)} style={{ ...SELECT, ...(errors.magasinageDate ? INPUT_ERROR : {}) }} className="pva-input" />
                 </div>
                 {errors.magasinageDate && <span style={ERROR_TEXT}>{errors.magasinageDate}</span>}
-                <span style={HELP_TEXT}>Date the container enters bonded storage/warehousing.</span>
+                <span style={HELP_TEXT}>{t('addEntry.dateMagasinageHelp')}</span>
               </div>
               <div style={FIELD}>
-                <label style={LABEL}>Nature marchandise</label>
+                <label style={LABEL}>{t('addEntry.natureMarchandise')}</label>
                 <select value={natureMarchandise} onChange={e => setNatureMarchandise(e.target.value)} style={SELECT} className="pva-input">
-                  <option value="">Select nature…</option>
+                  <option value="">{t('addEntry.natureMarchandiseSelectPlaceholder')}</option>
                   {NATURE_MARCHANDISE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
@@ -379,7 +381,7 @@ export default function AddEntry() {
         <div style={CARD}>
           <div style={CARD_HEAD}>
             <Package size={15} style={{ color: "#185FA5" }} />
-            <span style={CARD_TITLE}>Groupages in this container</span>
+            <span style={CARD_TITLE}>{t('addEntry.groupagesTitle')}</span>
             <span style={CARD_COUNT}>{groupages.length}</span>
           </div>
 
@@ -398,31 +400,31 @@ export default function AddEntry() {
                 {/* Row 1 */}
                 <div style={GROUPAGE_SUBROW} className="pva-groupage-fields">
                   <div style={GFIELD}>
-                    <label style={GLABEL}><Package size={11} /> Fournisseur <span style={REQUIRED}>*</span></label>
-                    <input type="text" value={g.supplier} onChange={e => updateGroupage(g.id, "supplier", e.target.value)} placeholder="Supplier name" style={GROUPAGE_INPUT} className="pva-input" />
+                    <label style={GLABEL}><Package size={11} /> {t('addEntry.fournisseur')} <span style={REQUIRED}>*</span></label>
+                    <input type="text" value={g.supplier} onChange={e => updateGroupage(g.id, "supplier", e.target.value)} placeholder={t('addEntry.fournisseurPlaceholder')} style={GROUPAGE_INPUT} className="pva-input" />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}><User size={11} /> Client <span style={REQUIRED}>*</span></label>
-                    <input type="text" value={g.client} onChange={e => updateGroupage(g.id, "client", e.target.value)} placeholder="Client name" style={GROUPAGE_INPUT} className="pva-input" />
+                    <label style={GLABEL}><User size={11} /> {t('addEntry.client')} <span style={REQUIRED}>*</span></label>
+                    <input type="text" value={g.client} onChange={e => updateGroupage(g.id, "client", e.target.value)} placeholder={t('addEntry.clientPlaceholder')} style={GROUPAGE_INPUT} className="pva-input" />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}><FileSignature size={11} /> Référence du client</label>
-                    <input type="text" value={g.clientRef} onChange={e => updateGroupage(g.id, "clientRef", e.target.value)} placeholder="Client reference" style={{ ...GROUPAGE_INPUT, fontFamily: MONO }} className="pva-input" />
+                    <label style={GLABEL}><FileSignature size={11} /> {t('addEntry.clientRef')}</label>
+                    <input type="text" value={g.clientRef} onChange={e => updateGroupage(g.id, "clientRef", e.target.value)} placeholder={t('addEntry.clientRefPlaceholder')} style={{ ...GROUPAGE_INPUT, fontFamily: MONO }} className="pva-input" />
                   </div>
                 </div>
 
                 {/* Row 2 */}
                 <div style={GROUPAGE_SUBROW} className="pva-groupage-fields">
                   <div style={GFIELD}>
-                    <label style={GLABEL}><Ship size={11} /> Shipper's name</label>
-                    <input type="text" list="pva-shippers" value={g.shipper} onChange={e => updateGroupage(g.id, "shipper", e.target.value)} placeholder="Shipper" style={GROUPAGE_INPUT} className="pva-input" />
+                    <label style={GLABEL}><Ship size={11} /> {t('addEntry.shipperName')}</label>
+                    <input type="text" list="pva-shippers" value={g.shipper} onChange={e => updateGroupage(g.id, "shipper", e.target.value)} placeholder={t('addEntry.shipperPlaceholder')} style={GROUPAGE_INPUT} className="pva-input" />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}><Calendar size={11} /> Booking date</label>
+                    <label style={GLABEL}><Calendar size={11} /> {t('addEntry.bookingDate')}</label>
                     <input type="date" value={g.bookingDate} onChange={e => updateGroupage(g.id, "bookingDate", e.target.value)} style={GROUPAGE_INPUT} className="pva-input" />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}><Calendar size={11} /> Date d'enlèvement</label>
+                    <label style={GLABEL}><Calendar size={11} /> {t('addEntry.pickupDate')}</label>
                     <input type="date" value={g.pickupDate} onChange={e => updateGroupage(g.id, "pickupDate", e.target.value)} style={{ ...GROUPAGE_INPUT, ...(errors.groupageFields?.[g.id]?.pickupDate ? INPUT_ERROR : {}) }} className="pva-input" />
                     {errors.groupageFields?.[g.id]?.pickupDate && <span style={GROUPAGE_ERROR_TEXT}>{errors.groupageFields[g.id].pickupDate}</span>}
                   </div>
@@ -431,15 +433,15 @@ export default function AddEntry() {
                 {/* Row 3 */}
                 <div style={GROUPAGE_SUBROW_4} className="pva-groupage-fields-4">
                   <div style={GFIELD}>
-                    <label style={GLABEL}><Weight size={11} /> Poids (kg)</label>
-                    <input type="text" value={g.weight} onChange={e => updateGroupage(g.id, "weight", e.target.value)} placeholder="e.g. 1240" style={{ ...GROUPAGE_INPUT, fontFamily: MONO }} className="pva-input" />
+                    <label style={GLABEL}><Weight size={11} /> {t('addEntry.poids')}</label>
+                    <input type="text" value={g.weight} onChange={e => updateGroupage(g.id, "weight", e.target.value)} placeholder={t('addEntry.poidsPlaceholder')} style={{ ...GROUPAGE_INPUT, fontFamily: MONO }} className="pva-input" />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}><Boxes size={11} /> Nombre de colis</label>
-                    <input type="text" value={g.packages} onChange={e => updateGroupage(g.id, "packages", e.target.value)} placeholder="e.g. 36" style={{ ...GROUPAGE_INPUT, fontFamily: MONO }} className="pva-input" />
+                    <label style={GLABEL}><Boxes size={11} /> {t('addEntry.colis')}</label>
+                    <input type="text" value={g.packages} onChange={e => updateGroupage(g.id, "packages", e.target.value)} placeholder={t('addEntry.colisPlaceholder')} style={{ ...GROUPAGE_INPUT, fontFamily: MONO }} className="pva-input" />
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}>Achat (TND) <span style={OPTIONAL_TAG_SM}>optional</span></label>
+                    <label style={GLABEL}>{t('addEntry.achat')} <span style={OPTIONAL_TAG_SM}>{t('addEntry.optional')}</span></label>
                     <div style={SELECT_WRAP}>
                       <input type="text" value={g.achat} onChange={e => updateGroupage(g.id, "achat", e.target.value)} placeholder="—" style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 42, ...(errors.groupageFields?.[g.id]?.achat ? INPUT_ERROR : {}) }} className="pva-input" />
                       <span style={CURRENCY_SUFFIX}>TND</span>
@@ -447,7 +449,7 @@ export default function AddEntry() {
                     {errors.groupageFields?.[g.id]?.achat && <span style={GROUPAGE_ERROR_TEXT}>{errors.groupageFields[g.id].achat}</span>}
                   </div>
                   <div style={GFIELD}>
-                    <label style={GLABEL}>Vente (TND) <span style={OPTIONAL_TAG_SM}>optional</span></label>
+                    <label style={GLABEL}>{t('addEntry.vente')} <span style={OPTIONAL_TAG_SM}>{t('addEntry.optional')}</span></label>
                     <div style={SELECT_WRAP}>
                       <input type="text" value={g.vente} onChange={e => updateGroupage(g.id, "vente", e.target.value)} placeholder="—" style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 42, ...(errors.groupageFields?.[g.id]?.vente ? INPUT_ERROR : {}) }} className="pva-input" />
                       <span style={CURRENCY_SUFFIX}>TND</span>
@@ -462,15 +464,15 @@ export default function AddEntry() {
           <datalist id="pva-shippers">{SHIPPERS.map(s => <option key={s} value={s} />)}</datalist>
 
           <button type="button" onClick={addGroupage} className="pva-add-btn">
-            <Plus size={15} /> Add groupage
+            <Plus size={15} /> {t('addEntry.addGroupage')}
           </button>
         </div>
 
         {/* ── Submit ── */}
         <div style={SUBMIT_ROW}>
-          <button type="button" className="pva-btn-secondary" onClick={() => navigate(-1)}>Cancel</button>
+          <button type="button" className="pva-btn-secondary" onClick={() => navigate(-1)}>{t('addEntry.cancel')}</button>
           <button type="submit" className="pva-btn-primary" disabled={busy}>
-            {busy ? "Saving…" : "Save container"}
+            {busy ? t('addEntry.saving') : t('addEntry.save')}
           </button>
         </div>
 
@@ -514,9 +516,6 @@ const AC_WRAP      = { position: "relative" };
 const AC_LIST      = { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, margin: 0, padding: 4, listStyle: "none", background: "#fff", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, boxShadow: "0 8px 24px rgba(11,42,61,0.12)", maxHeight: 220, overflowY: "auto" };
 const AC_ITEM      = { padding: "9px 12px", fontSize: "0.85rem", color: "#1C2B33", borderRadius: 6, cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif" };
 const AC_ITEM_ACTIVE = { background: "rgba(24,95,165,0.08)", color: "#0B2A3D" };
-const PORT_CHIPS   = { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 };
-const PORT_CHIP    = { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 6px 5px 11px", background: "#E6F1FB", color: "#0c447c", borderRadius: 20, fontSize: "0.78rem", fontFamily: MONO };
-const PORT_CHIP_X  = { background: "rgba(12,68,124,0.12)", border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#0c447c", fontSize: 13, lineHeight: 1, padding: 0 };
 const GROUPAGE_ERROR_BANNER = { display: "flex", alignItems: "center", gap: 8, margin: "16px 22px 0", padding: "10px 14px", background: "#FAEEDA", border: "1px solid rgba(201,145,43,0.35)", borderRadius: 8, color: "#854F0B", fontSize: "0.78rem" };
 const GROUPAGE_LIST       = { padding: "18px 22px 6px" };
 const GROUPAGE_CARD       = { border: "1px solid rgba(11,42,61,0.12)", borderRadius: 10, background: "#FAF8F2", padding: "14px 16px", marginBottom: 14 };
