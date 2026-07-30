@@ -15,6 +15,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 import { Search as SearchIcon, Package, ChevronDown, X, Clock3, ArrowUpRight } from "lucide-react";
 
 const MONO = "'IBM Plex Mono', monospace";
@@ -24,13 +25,13 @@ const MONO = "'IBM Plex Mono', monospace";
 // Flattens containers + their groupages into flat, searchable shipment rows.
 // containerId is carried along (not shown) so a result can navigate straight
 // to that container's detail page.
-function buildShipments(containers) {
+function buildShipments(containers, t) {
   const rows = [];
   containers.forEach(c => {
     (c.groupages || []).forEach(g => {
       rows.push({
         containerId: c.id,
-        client: g.client && g.client.trim() ? g.client.trim() : "Unassigned client",
+        client: g.client && g.client.trim() ? g.client.trim() : t("search.unassignedClient"),
         supplier: g.supplier || "—",
         container: c.number,
         reference: g.reference || g.vente || g.achat || c.ref || "—",
@@ -73,6 +74,7 @@ const RECENT_SEARCHES = ["Medina Trading", "MSCU7654321", "Carthage Logistics"];
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function ClientGroup({ client, shipments, query, index, onSelect }) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(true);
   const initials = client.slice(0, 2).toUpperCase();
 
@@ -114,7 +116,7 @@ function ClientGroup({ client, shipments, query, index, onSelect }) {
               {highlight(client, query)}
             </div>
             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".05em", color: "#6E7F87" }}>
-              {shipments.length} shipment{shipments.length > 1 ? "s" : ""}
+              {shipments.length} {shipments.length > 1 ? t("search.shipmentPlural") : t("search.shipmentSingular")}
             </div>
           </div>
         </div>
@@ -134,7 +136,7 @@ function ClientGroup({ client, shipments, query, index, onSelect }) {
             key={i}
             className="pv-ship-row"
             onClick={() => onSelect(s.containerId)}
-            title="Open this container"
+            title={t("search.openContainerTitle")}
             style={{
               display: "grid",
               gridTemplateColumns: "1.6fr 1.6fr 1fr 1fr",
@@ -174,6 +176,7 @@ function ClientGroup({ client, shipments, query, index, onSelect }) {
 // ─── Hero (page underneath the overlay) ───────────────────────────────────────
 
 function Hero({ onOpen, shipmentCount }) {
+  const { t } = useLanguage();
   const [hover, setHover] = useState(false);
   return (
     <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -187,13 +190,13 @@ function Hero({ onOpen, shipmentCount }) {
 
       <div style={{ position: "relative", zIndex: 2, padding: "0 52px 40px" }}>
         <p style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: "#C7E0D8", marginBottom: 10 }}>
-          Historical records · Tunis-Goulette
+          {t("search.heroEyebrow")}
         </p>
         <h1 style={{ fontFamily: "'Fraunces',serif", fontWeight: 600, fontSize: "clamp(2.2rem,4.5vw,3.6rem)", lineHeight: .95, letterSpacing: "-.02em", color: "#DCE6EA", marginBottom: 10 }}>
-          Search
+          {t("search.title")}
         </h1>
         <p style={{ fontFamily: "'Fraunces',serif", fontWeight: 300, fontSize: "clamp(.85rem,1.4vw,1rem)", color: "rgba(220,230,234,.68)", maxWidth: "48ch", lineHeight: 1.55, marginBottom: 28 }}>
-          Search across every shipment ever imported — by client, supplier, container, or reference.
+          {t("search.heroSubtitle")}
         </p>
 
         {/* Trigger */}
@@ -221,7 +224,7 @@ function Hero({ onOpen, shipmentCount }) {
             flex: 1, padding: "16px 16px", fontSize: 15, color: "#A8A39A",
             fontFamily: "'IBM Plex Sans',sans-serif",
           }}>
-            Type a client name, supplier, container number, or reference…
+            {t("search.placeholder")}
           </span>
           <span style={{
             marginRight: 14, padding: "4px 9px", borderRadius: 6,
@@ -239,6 +242,7 @@ function Hero({ onOpen, shipmentCount }) {
 // ─── Search overlay (modal) ────────────────────────────────────────────────────
 
 function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, closing, shipmentCount, onSelect }) {
+  const { t } = useLanguage();
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -293,7 +297,7 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
               ref={inputRef}
               className="pv-search-input"
               type="text"
-              placeholder="Type a client name, supplier, container number, or reference…"
+              placeholder={t("search.placeholder")}
               value={query}
               onChange={e => setQuery(e.target.value)}
               style={{
@@ -311,7 +315,7 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
               }}
               onMouseEnter={e => e.currentTarget.style.background = "rgba(11,42,61,.06)"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-              aria-label="Close search"
+              aria-label={t("search.closeSearch")}
             >
               <X size={17} />
             </button>
@@ -320,10 +324,10 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
           {hasQuery && grouped.length > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, padding: "0 2px" }}>
               <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: ".08em", textTransform: "uppercase", color: "#6E7F87" }}>
-                {results.length} shipment{results.length !== 1 ? "s" : ""} · {grouped.length} client{grouped.length !== 1 ? "s" : ""}
+                {results.length} {results.length !== 1 ? t("search.shipmentPlural") : t("search.shipmentSingular")} · {grouped.length} {grouped.length !== 1 ? t("search.clientPlural") : t("search.clientSingular")}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: MONO, fontSize: 9.5, letterSpacing: ".06em", color: "#A8A39A" }}>
-                <kbd style={KBD_STYLE}>esc</kbd> to close
+                <kbd style={KBD_STYLE}>esc</kbd> {t("search.escToClose")}
               </span>
             </div>
           )}
@@ -339,10 +343,10 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
               fontFamily: MONO, fontSize: 9, fontWeight: 600,
               letterSpacing: ".1em", textTransform: "uppercase", color: "#A8A39A",
             }}>
-              <span>Container</span>
-              <span>Supplier</span>
-              <span>Reference</span>
-              <span style={{ textAlign: "right" }}>Date</span>
+              <span>{t("search.container")}</span>
+              <span>{t("search.supplier")}</span>
+              <span>{t("search.reference")}</span>
+              <span style={{ textAlign: "right" }}>{t("search.date")}</span>
             </div>
           )}
 
@@ -357,7 +361,7 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
                 color: "#A8A39A", marginBottom: 10, paddingLeft: 4,
                 display: "flex", alignItems: "center", gap: 6,
               }}>
-                <Clock3 size={11} /> Recent searches
+                <Clock3 size={11} /> {t("search.recentSearches")}
               </p>
               {RECENT_SEARCHES.map((term, i) => (
                 <button
@@ -387,7 +391,7 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
 
               <div style={{ textAlign: "center", marginTop: 24, color: "#A8A39A" }}>
                 <p style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: ".04em" }}>
-                  Searches across {shipmentCount} shipments in your history
+                  {t("search.searchesAcrossPrefix")} {shipmentCount} {t("search.searchesAcrossSuffix")}
                 </p>
               </div>
             </div>
@@ -396,10 +400,10 @@ function SearchOverlay({ query, setQuery, onClose, results, grouped, hasQuery, c
           {hasQuery && grouped.length === 0 && (
             <div style={{ textAlign: "center", padding: "44px 20px", color: "#6E7F87" }}>
               <p style={{ fontFamily: "'Fraunces',serif", fontSize: 16, color: "#1C2B33", marginBottom: 6, fontWeight: 500 }}>
-                No results for "{query}"
+                {t("search.noResultsForPrefix")} "{query}"
               </p>
               <p style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".04em", color: "#6E7F87" }}>
-                Try a client name, container number, or reference code
+                {t("search.tryHint")}
               </p>
             </div>
           )}
@@ -420,6 +424,7 @@ const KBD_STYLE = {
 
 export default function Search() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [containers, setContainers] = useState([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -437,7 +442,7 @@ export default function Search() {
     return unsubscribe;
   }, []);
 
-  const shipments = useMemo(() => buildShipments(containers), [containers]);
+  const shipments = useMemo(() => buildShipments(containers, t), [containers, t]);
 
   const results = query.trim().length < 2
     ? []

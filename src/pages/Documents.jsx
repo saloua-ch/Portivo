@@ -17,6 +17,7 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 import {
   ArrowLeft, FileText, Receipt, FileCheck2, Upload,
   Package, Trash2, Download, Eye, ChevronDown, Plus,
@@ -95,6 +96,7 @@ function downloadDoc(doc) {
 export default function Documents() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [container, setContainer] = useState(null);
@@ -158,7 +160,7 @@ export default function Documents() {
       await persistGroupages(updatedGroupages);
     } catch (err) {
       console.error("Upload failed", err);
-      alert("Couldn't upload that file — please try again.");
+      alert(t("documents.errUpload"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -167,7 +169,7 @@ export default function Documents() {
 
   async function handleDeleteDoc(docId) {
     if (!activeGroupage) return;
-    if (!window.confirm("Remove this document?")) return;
+    if (!window.confirm(t("documents.confirmRemove"))) return;
     const updatedGroupages = groupages.map((g, i) =>
       i === activeIndex
         ? { ...g, documents: (g.documents || []).filter(d => d.id !== docId) }
@@ -177,7 +179,7 @@ export default function Documents() {
       await persistGroupages(updatedGroupages);
     } catch (err) {
       console.error("Delete failed", err);
-      alert("Couldn't remove that document — please try again.");
+      alert(t("documents.errRemove"));
     }
   }
 
@@ -186,7 +188,7 @@ export default function Documents() {
   if (loading) {
     return (
       <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-        <p style={{ fontSize: 14 }}>Loading documents…</p>
+        <p style={{ fontSize: 14 }}>{t("documents.loading")}</p>
       </div>
     );
   }
@@ -194,12 +196,12 @@ export default function Documents() {
   if (!container) {
     return (
       <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-        <p style={{ fontSize: 16 }}>Container not found.</p>
+        <p style={{ fontSize: 16 }}>{t("containerDetail.notFound")}</p>
         <button
           onClick={() => navigate("/containers")}
           style={{ marginTop: 16, padding: "8px 20px", border: "1px solid rgba(11,42,61,0.22)", background: "#fff", cursor: "pointer", fontSize: 13, borderRadius: 6 }}
         >
-          Back to containers
+          {t("containerDetail.backToContainers")}
         </button>
       </div>
     );
@@ -222,10 +224,10 @@ export default function Documents() {
             </button>
           </div>
           <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#9DB5C0", margin: "0 0 12px" }}>
-            Documents · {container.carrier}
+            {t("documents.title")} · {container.carrier}
           </p>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "clamp(2rem,4vw,2.8rem)", letterSpacing: "-0.02em", color: "#DCE6EA", margin: 0 }}>
-            Groupage documents
+            {t("documents.groupageDocuments")}
           </h1>
         </div>
 
@@ -233,14 +235,14 @@ export default function Documents() {
 
           {groupages.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
-              This container has no groupages yet.
+              {t("documents.noGroupages")}
             </div>
           ) : (
             <>
               {/* ── Groupage switcher ── */}
               <div style={{ marginBottom: 24 }}>
                 <p style={{ fontFamily: MONO, fontSize: "0.62rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87", marginBottom: 8 }}>
-                  Viewing documents for
+                  {t("documents.viewingDocsFor")}
                 </p>
                 <div style={{ position: "relative", maxWidth: 420 }}>
                   <Package size={15} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#6E7F87", pointerEvents: "none" }} />
@@ -272,13 +274,13 @@ export default function Documents() {
                       {activeGroupage.supplier}
                     </div>
                     <div style={{ fontSize: "0.78rem", color: "#6E7F87" }}>
-                      {activeGroupage.client ? `Client: ${activeGroupage.client}` : "Client TBD"}
+                      {activeGroupage.client ? `${t("documents.clientPrefix")} ${activeGroupage.client}` : t("documents.clientTBD")}
                       <span style={{ margin: "0 6px" }}>·</span>
-                      {activeGroupage.delivered ? "Delivered" : "Pending delivery"}
+                      {activeGroupage.delivered ? t("containerDetail.deliveryDelivered") : t("documents.pendingDelivery")}
                     </div>
                   </div>
                   <span style={{ fontFamily: MONO, fontSize: "0.66rem", color: "#6E7F87" }}>
-                    {docs.length} doc{docs.length !== 1 ? "s" : ""}
+                    {docs.length} {docs.length !== 1 ? t("documents.docPlural") : t("documents.docSingular")}
                   </span>
                 </div>
               )}
@@ -301,7 +303,7 @@ export default function Documents() {
                   {uploading
                     ? <Upload size={14} style={{ animation: "pvdoc-spin 1s linear infinite" }} />
                     : <Plus size={14} />}
-                  {uploading ? "Uploading…" : "Add document"}
+                  {uploading ? t("documents.uploading") : t("documents.addDocument")}
                 </button>
               </div>
 
@@ -309,7 +311,7 @@ export default function Documents() {
               {docs.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "44px 20px", color: "#6E7F87", border: "1px dashed rgba(11,42,61,0.18)", borderRadius: 10 }}>
                   <FileText size={24} style={{ opacity: 0.4, marginBottom: 10, display: "block", margin: "0 auto 10px" }} />
-                  <p style={{ fontFamily: MONO, fontSize: 12 }}>No documents uploaded for this groupage yet.</p>
+                  <p style={{ fontFamily: MONO, fontSize: 12 }}>{t("documents.noDocsYet")}</p>
                 </div>
               ) : (
                 <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden" }}>
@@ -344,7 +346,7 @@ export default function Documents() {
                             <button
                               className="pvdoc-icon-btn"
                               onClick={() => viewDoc(doc)}
-                              title="Open in new tab"
+                              title={t("documents.openNewTab")}
                             >
                               <Eye size={15} />
                             </button>
@@ -352,14 +354,14 @@ export default function Documents() {
                           <button
                             className="pvdoc-icon-btn"
                             onClick={() => downloadDoc(doc)}
-                            title="Download"
+                            title={t("documents.download")}
                           >
                             <Download size={15} />
                           </button>
                           <button
                             className="pvdoc-icon-btn danger"
                             onClick={() => handleDeleteDoc(doc.id)}
-                            title="Remove"
+                            title={t("documents.removeTooltip")}
                           >
                             <Trash2 size={15} />
                           </button>

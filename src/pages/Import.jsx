@@ -10,6 +10,7 @@
 import { useState, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -67,10 +68,12 @@ function parsePortivoSheet(ws, sheetName) {
         status: "in_transit",
         needsAttention: false,
         groupages: [],
+        // Codes, not literal text — ContainerDetail translates these via
+        // its stepLabel() lookup so the timeline follows the UI language.
         timeline: [
-          { step: "Departed origin port", date: null, done: false  },
-          { step: "In transit",           date: null, current: true },
-          { step: "Arrived destination",  date: null, done: false  },
+          { step: "departed",   date: null, done: false  },
+          { step: "in_transit", date: null, current: true },
+          { step: "arrived",    date: null, done: false  },
         ],
       };
     }
@@ -102,14 +105,14 @@ function parsePortivoSheet(ws, sheetName) {
  * Parse a full workbook — all sheets.
  * Returns { containers, sheetsSummary }
  */
-function parseWorkbook(file, onSuccess, onError) {
+function parseWorkbook(file, t, onSuccess, onError) {
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const wb = XLSX.read(e.target.result, { type: "array" });
 
       if (!wb.SheetNames.length) {
-        onError("No sheets found in this file.");
+        onError(t("import.errNoSheets"));
         return;
       }
 
@@ -124,13 +127,13 @@ function parseWorkbook(file, onSuccess, onError) {
       }
 
       if (!allContainers.length) {
-        onError("No containers found — make sure this is a Portivo-format Excel file.");
+        onError(t("import.errNoContainers"));
         return;
       }
 
       onSuccess({ containers: allContainers, file: file.name, sheetsSummary });
     } catch (err) {
-      onError("Could not read this file. Please upload a valid .xlsx or .xls file.");
+      onError(t("import.errReadFile"));
     }
   };
   reader.readAsArrayBuffer(file);
@@ -273,23 +276,28 @@ const Icon = {
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function Hero() {
+  const { t } = useLanguage();
   return (
     <div className="pi-hero">
       <img className="pi-hero-photo" src="https://images.unsplash.com/photo-1720931623686-588ef1014e2a?q=80&w=1032&auto=format&fit=crop" alt="Container terminal" />
       <div className="pi-hero-gradient" /><div className="pi-hero-tint" />
-      <span className="pi-hero-credit">Photo: Unsplash</span>
+      <span className="pi-hero-credit">{t("import.heroPhotoCredit")}</span>
       <div className="pi-hero-content">
-        <div className="pi-tag"><div className="pi-tag-dot" />Live sync — Tunis-Goulette Terminal</div>
-        <h1 className="pi-h1">Manifest Import</h1>
-        <p className="pi-sub">Upload your monthly Excel file to update the fleet registry. Containers and groupages are auto-detected from your Genmar layout.</p>
+        <div className="pi-tag"><div className="pi-tag-dot" />{t("import.heroLiveTag")}</div>
+        <h1 className="pi-h1">{t("import.heroTitle")}</h1>
+        <p className="pi-sub">{t("import.heroSubtitle")}</p>
         <div className="pi-pills">
-          <span className="pi-pill pi-pill-green"><Icon.Plus /> Containers + groupages</span>
-          <span className="pi-pill pi-pill-amber"><Icon.Alert /> Duplicates skipped</span>
+          <span className="pi-pill pi-pill-green"><Icon.Plus /> {t("import.heroPillContainers")}</span>
+          <span className="pi-pill pi-pill-amber"><Icon.Alert /> {t("import.heroPillDuplicates")}</span>
         </div>
       </div>
       <div className="pi-process">
-        {[["01","Upload Excel file","Your monthly .xlsx — archive or single-month"],["02","Review preview","See every container and groupage count"],["03","Confirm & sync","Saved to fleet registry, all pages refresh"]].map(([n,t,d]) => (
-          <div className="pi-step" key={n}><span className="pi-step-num">{n}</span><div className="pi-step-text"><strong>{t}</strong>{d}</div></div>
+        {[
+          ["01", t("import.step1Title"), t("import.step1Desc")],
+          ["02", t("import.step2Title"), t("import.step2Desc")],
+          ["03", t("import.step3Title"), t("import.step3Desc")],
+        ].map(([n,ti,d]) => (
+          <div className="pi-step" key={n}><span className="pi-step-num">{n}</span><div className="pi-step-text"><strong>{ti}</strong>{d}</div></div>
         ))}
       </div>
     </div>
@@ -297,20 +305,22 @@ function Hero() {
 }
 
 function StatBar({ history }) {
+  const { t } = useLanguage();
   const tc = history.reduce((a, h) => a + h.ctr, 0);
   const tg = history.reduce((a, h) => a + h.grp, 0);
   const last = history[0] ? history[0].filename.replace(".xlsx","") : "—";
   return (
     <div className="pi-stats">
-      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#185FA5" }}/><div className="pi-stat-n">{pad(history.length)}</div><div className="pi-stat-l">Files imported</div></div>
-      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#1D9E75" }}/><div className="pi-stat-n">{tc}</div><div className="pi-stat-l">Containers saved</div></div>
-      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#3B6D11" }}/><div className="pi-stat-n" style={{ color:"#3B6D11" }}>{tg}</div><div className="pi-stat-l">Groupages tracked</div></div>
-      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#BA7517" }}/><div className="pi-stat-n" style={{ color:"#BA7517", fontSize:16, paddingTop:6 }}>{last}</div><div className="pi-stat-l">Last import</div></div>
+      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#185FA5" }}/><div className="pi-stat-n">{pad(history.length)}</div><div className="pi-stat-l">{t("import.statFilesImported")}</div></div>
+      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#1D9E75" }}/><div className="pi-stat-n">{tc}</div><div className="pi-stat-l">{t("import.statContainersSaved")}</div></div>
+      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#3B6D11" }}/><div className="pi-stat-n" style={{ color:"#3B6D11" }}>{tg}</div><div className="pi-stat-l">{t("import.statGroupagesTracked")}</div></div>
+      <div className="pi-stat"><div className="pi-stat-accent" style={{ background:"#BA7517" }}/><div className="pi-stat-n" style={{ color:"#BA7517", fontSize:16, paddingTop:6 }}>{last}</div><div className="pi-stat-l">{t("import.statLastImport")}</div></div>
     </div>
   );
 }
 
 function DropZone({ onFile, isDragging, setIsDragging }) {
+  const { t } = useLanguage();
   const inputRef = useRef();
   return (
     <div className={`pi-dz${isDragging ? " drag" : ""}`} onClick={() => inputRef.current.click()}
@@ -321,20 +331,21 @@ function DropZone({ onFile, isDragging, setIsDragging }) {
       <input ref={inputRef} type="file" accept=".xlsx,.xls" style={{ display:"none" }} onChange={e => { if (e.target.files[0]) onFile(e.target.files[0]); }} />
       <div className="pi-dz-inner">
         <div className="pi-dz-icon"><Icon.Upload /></div>
-        <p className="pi-dz-title">{isDragging ? "Release to import" : "Drop your manifest here"}</p>
-        <p className="pi-dz-sub">Monthly archive or single-sheet file — containers and groupages<br />are detected automatically from the Genmar column layout.</p>
-        <div className="pi-dz-fmts"><span className="pi-dz-fmt">XLSX</span><span className="pi-dz-fmt">XLS</span><span className="pi-dz-fmt">Click to browse</span></div>
+        <p className="pi-dz-title">{isDragging ? t("import.dzReleaseToImport") : t("import.dzDropHere")}</p>
+        <p className="pi-dz-sub">{t("import.dzSub")}</p>
+        <div className="pi-dz-fmts"><span className="pi-dz-fmt">XLSX</span><span className="pi-dz-fmt">XLS</span><span className="pi-dz-fmt">{t("import.dzClickToBrowse")}</span></div>
       </div>
       <div className="pi-dz-hints">
-        <div className="pi-dz-hint"><Icon.Columns /><div className="pi-dz-hint-text"><strong>Auto-detected layout</strong>CCH ref, MSCU number, ETA, groupages</div></div>
-        <div className="pi-dz-hint"><Icon.Database /><div className="pi-dz-hint-text"><strong>Multi-sheet support</strong>Archive files with Jan–Dec sheets</div></div>
-        <div className="pi-dz-hint"><Icon.Shield /><div className="pi-dz-hint-text"><strong>Preview before saving</strong>Review every row first</div></div>
+        <div className="pi-dz-hint"><Icon.Columns /><div className="pi-dz-hint-text"><strong>{t("import.dzHint1Title")}</strong>{t("import.dzHint1Desc")}</div></div>
+        <div className="pi-dz-hint"><Icon.Database /><div className="pi-dz-hint-text"><strong>{t("import.dzHint2Title")}</strong>{t("import.dzHint2Desc")}</div></div>
+        <div className="pi-dz-hint"><Icon.Shield /><div className="pi-dz-hint-text"><strong>{t("import.dzHint3Title")}</strong>{t("import.dzHint3Desc")}</div></div>
       </div>
     </div>
   );
 }
 
 function PreviewTable({ preview, existingNumbers, onConfirm, onDiscard, importing }) {
+  const { t } = useLanguage();
   const { containers, file, sheetsSummary } = preview;
   const newOnes   = containers.filter(c => !existingNumbers.includes(c.number));
   const conflicts = containers.filter(c => existingNumbers.includes(c.number));
@@ -342,7 +353,7 @@ function PreviewTable({ preview, existingNumbers, onConfirm, onDiscard, importin
 
   return (
     <div style={{ marginBottom: 32 }}>
-      <p className="pi-slabel">Preview — {file}</p>
+      <p className="pi-slabel">{t("import.previewPrefix")} {file}</p>
 
       {/* Sheet pills for archive files */}
       {sheetsSummary.length > 1 && (
@@ -354,23 +365,23 @@ function PreviewTable({ preview, existingNumbers, onConfirm, onDiscard, importin
       )}
 
       {conflicts.length > 0 && (
-        <div className="pi-warn"><Icon.Alert /><div>{conflicts.length} container{conflicts.length > 1 ? "s" : ""} already in the registry — they'll be skipped. {newOnes.length} new ones will be saved.</div></div>
+        <div className="pi-warn"><Icon.Alert /><div>{t(conflicts.length > 1 ? "import.conflictsWarningPlural" : "import.conflictsWarningSingular").replace("{n}", conflicts.length).replace("{m}", newOnes.length)}</div></div>
       )}
 
       {importing && (
-        <div className="pi-saving-bar"><Icon.Spinner />Saving {newOnes.length} containers…</div>
+        <div className="pi-saving-bar"><Icon.Spinner />{t("import.savingContainers").replace("{n}", newOnes.length)}</div>
       )}
 
       <div className="pi-preview-top">
         <div className="pi-preview-file"><Icon.File />{file}</div>
         <div className="pi-preview-counts">
-          {newOnes.length > 0   && <span className="pi-pcount pi-pcount-new">+ {newOnes.length} new · {totalGroupages} groupages</span>}
-          {conflicts.length > 0 && <span className="pi-pcount pi-pcount-con">⚠ {conflicts.length} skipped</span>}
+          {newOnes.length > 0   && <span className="pi-pcount pi-pcount-new">+ {newOnes.length} {t("import.pcountNew")} · {totalGroupages} groupages</span>}
+          {conflicts.length > 0 && <span className="pi-pcount pi-pcount-con">⚠ {conflicts.length} {t("import.pcountSkipped")}</span>}
         </div>
       </div>
 
       <div className="pi-table">
-        <div className="pi-thead"><span>#</span><span>Container</span><span>Sheet</span><span>ETA</span><span>Status</span></div>
+        <div className="pi-thead"><span>#</span><span>{t("import.colContainer")}</span><span>{t("import.colSheet")}</span><span>{t("import.colEta")}</span><span>{t("import.colStatus")}</span></div>
         {containers.map((c, i) => {
           const isConflict = existingNumbers.includes(c.number);
           return (
@@ -382,16 +393,16 @@ function PreviewTable({ preview, existingNumbers, onConfirm, onDiscard, importin
               </div>
               <span className="pi-meta">{c.sheet}</span>
               <span className="pi-meta" style={{ fontFamily:"'IBM Plex Mono',monospace", fontSize:11 }}>{c.eta || "—"}</span>
-              <span className={`pi-badge ${isConflict ? "pi-badge-con" : "pi-badge-new"}`}>{isConflict ? "Skip" : "New"}</span>
+              <span className={`pi-badge ${isConflict ? "pi-badge-con" : "pi-badge-new"}`}>{isConflict ? t("import.badgeSkip") : t("import.badgeNew")}</span>
             </div>
           );
         })}
       </div>
 
       <div className="pi-act">
-        <button className="pi-btn-d" onClick={onDiscard} disabled={importing}><Icon.Trash /> Discard</button>
+        <button className="pi-btn-d" onClick={onDiscard} disabled={importing}><Icon.Trash /> {t("import.discardBtn")}</button>
         <button className="pi-btn-c" onClick={onConfirm} disabled={importing || newOnes.length === 0}>
-          {importing ? "Saving…" : <><Icon.Check /> Save {newOnes.length} container{newOnes.length !== 1 ? "s" : ""}</>}
+          {importing ? t("import.savingEllipsis") : <><Icon.Check /> {t(newOnes.length !== 1 ? "import.saveContainersPlural" : "import.saveContainersSingular").replace("{n}", newOnes.length)}</>}
         </button>
       </div>
     </div>
@@ -399,32 +410,34 @@ function PreviewTable({ preview, existingNumbers, onConfirm, onDiscard, importin
 }
 
 function SuccessBanner({ result, onReset }) {
+  const { t } = useLanguage();
   return (
     <div className="pi-success">
       <div className="pi-succ-left">
         <div className="pi-succ-icon"><Icon.Check /></div>
         <div>
-          <div className="pi-succ-h">Import successful</div>
-          <div className="pi-succ-s">{result.imported} container{result.imported !== 1 ? "s" : ""} saved · {result.skipped} skipped</div>
+          <div className="pi-succ-h">{t("import.importSuccessTitle")}</div>
+          <div className="pi-succ-s">{t(result.imported !== 1 ? "import.importSuccessSummaryPlural" : "import.importSuccessSummarySingular").replace("{n}", result.imported).replace("{m}", result.skipped)}</div>
         </div>
       </div>
-      <button className="pi-btn-more" onClick={onReset}><Icon.Refresh /> Import another file</button>
+      <button className="pi-btn-more" onClick={onReset}><Icon.Refresh /> {t("import.importAnotherFile")}</button>
     </div>
   );
 }
 
 function HistoryTable({ history }) {
-  if (!history.length) return <div className="pi-hist"><div className="pi-empty">No imports yet — upload your first file above.</div></div>;
+  const { t } = useLanguage();
+  if (!history.length) return <div className="pi-hist"><div className="pi-empty">{t("import.noImportsYet")}</div></div>;
   return (
     <div className="pi-hist">
-      <div className="pi-hist-head"><span /><span>File</span><span>Saved</span><span>Groupages</span><span style={{ textAlign:"right" }}>Date & time</span></div>
+      <div className="pi-hist-head"><span /><span>{t("import.histColFile")}</span><span>{t("import.histColSaved")}</span><span>{t("import.histColGroupages")}</span><span style={{ textAlign:"right" }}>{t("import.histColDateTime")}</span></div>
       {history.map((h) => (
         <div className="pi-hist-row" key={h.id}>
           <div className="pi-hist-icon"><Icon.File /></div>
-          <div><div className="pi-hist-n">{h.filename}</div><div className="pi-hist-sub">{h.sheets} sheet{h.sheets !== 1 ? "s" : ""} · {h.skipped} skipped</div></div>
+          <div><div className="pi-hist-n">{h.filename}</div><div className="pi-hist-sub">{t(h.sheets !== 1 ? "import.histSheetsPlural" : "import.histSheetsSingular").replace("{n}", h.sheets).replace("{m}", h.skipped)}</div></div>
           <div style={{ fontSize:13, color:"#2a5a08", fontWeight:600 }}>{h.ctr}</div>
           <div style={{ fontSize:13, color:"#3B6D11" }}>{h.grp}</div>
-          <div style={{ textAlign:"right" }}><div className="pi-hist-time">{h.at}</div><span className="pi-hist-badge">Imported</span></div>
+          <div style={{ textAlign:"right" }}><div className="pi-hist-time">{h.at}</div><span className="pi-hist-badge">{t("import.histImportedBadge")}</span></div>
         </div>
       ))}
     </div>
@@ -434,6 +447,7 @@ function HistoryTable({ history }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Import() {
+  const { t } = useLanguage();
   const [isDragging, setIsDragging]     = useState(false);
   const [preview, setPreview]           = useState(null);
   const [existingNumbers, setExisting]  = useState([]);
@@ -459,7 +473,7 @@ export default function Import() {
     const existing = await storage.getContainers();
     setExisting(existing.map(c => c.number));
 
-    parseWorkbook(file,
+    parseWorkbook(file, t,
       (result) => { setPreview(result); setConfirmed(false); setImportResult(null); },
       (msg)    => alert(msg)
     );
@@ -527,11 +541,11 @@ export default function Import() {
           )}
           {(!preview || confirmed) && (
             <>
-              <p className="pi-slabel">{confirmed ? "Upload another file" : "Upload file"}</p>
+              <p className="pi-slabel">{confirmed ? t("import.uploadAnotherFile") : t("import.uploadFile")}</p>
               <DropZone onFile={handleFile} isDragging={isDragging} setIsDragging={setIsDragging} />
             </>
           )}
-          <p className="pi-slabel pi-mt">Import history</p>
+          <p className="pi-slabel pi-mt">{t("import.importHistory")}</p>
           <HistoryTable history={history} />
         </div>
       </div>

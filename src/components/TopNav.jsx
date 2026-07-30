@@ -1,8 +1,9 @@
 import { NavLink, Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { Bell, Mail, Anchor, Globe } from "lucide-react";
+import { Bell, Mail, Anchor, Globe, LogOut } from "lucide-react";
 import { getAlerts, subscribeAlerts } from "../state/alerts";
 import { useLanguage } from "../context/LanguageContext";
+import * as auth from "../api/auth";
 
 /**
  * TopNav — replaces Sidebar across inner app pages.
@@ -29,6 +30,7 @@ export default function TopNav() {
   const [alerts, setLocalAlerts] = useState(getAlerts());
   const [open, setOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [email, setEmail] = useState(null);
   const popRef = useRef(null);
   const btnRef = useRef(null);
   const langBtnRef = useRef(null);
@@ -39,6 +41,23 @@ export default function TopNav() {
   useEffect(() => {
     setSyncTime(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    auth.getSession().then(session => {
+      if (mounted) setEmail(session?.user?.email || null);
+    });
+    const unsubscribe = auth.onAuthChange(session => {
+      if (mounted) setEmail(session?.user?.email || null);
+    });
+    return () => { mounted = false; unsubscribe(); };
+  }, []);
+
+  async function handleLogout() {
+    await auth.signOut();
+    // No manual navigation needed — App's RequireAuth is subscribed to the
+    // same auth state and redirects to /login as soon as it flips to anon.
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeAlerts(setLocalAlerts);
@@ -192,6 +211,21 @@ export default function TopNav() {
           <span className="pv-topnav-dot" aria-hidden="true" />
           Synced {syncTime}
         </span>
+
+        {email && (
+          <div className="pv-topnav-user">
+            <span className="pv-topnav-user-email" title={`${t('topnav.signedInAs')} ${email}`}>{email}</span>
+            <button
+              type="button"
+              className="pv-topnav-logout"
+              onClick={handleLogout}
+              title={t('topnav.logout')}
+              aria-label={t('topnav.logout')}
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -530,6 +564,49 @@ const CSS = `
   text-transform: uppercase;
   color: #6F8B9C;
   flex-shrink: 0;
+}
+
+.pv-topnav-user{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-left: 14px;
+  border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.pv-topnav-user-email{
+  display: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: #6F8B9C;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 960px){
+  .pv-topnav-user-email{ display: inline; }
+}
+
+.pv-topnav-logout{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: #6F8B9C;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.pv-topnav-logout:hover{
+  background: rgba(214,73,47,0.16);
+  color: #F2A98C;
+  border-color: rgba(214,73,47,0.35);
 }
 
 .pv-topnav-dot{

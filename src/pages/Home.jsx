@@ -4,6 +4,7 @@ import { geoEqualEarth, geoPath, geoGraticule } from "d3-geo";
 import { feature } from "topojson-client";
 import { Ship, Plane } from "lucide-react";
 import worldTopology from "world-atlas/countries-110m.json";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * Portivo — maritime port-operations landing page
@@ -222,87 +223,87 @@ function RouteVehicle({ from, to, duration, offset, color, vehicle }) {
   );
 }
 
-const PORTS_OF_CALL = [
-  {
-    berth: "Berth 01 — Arrivals",
-    accent: "teal",
-    Icon: IconShip,
-    title: "Arrivals",
-    description:
-      "Every container sorted by estimated arrival, grouped by day, with the ones needing attention surfaced first.",
-    status: "3 due this week",
-    href: "/arrivals",
-  },
-  {
-    berth: "Berth 02 — Containers",
-    accent: "amber",
-    Icon: IconBox,
-    title: "Containers",
-    description:
-      "The full fleet at a glance — in transit, in customs, or delivered, with documents and groupages attached.",
-    status: "2 flagged",
-    href: "/containers",
-  },
-  {
-    berth: "Berth 03 — Search",
-    accent: "ink",
-    Icon: IconSearch,
-    title: "Search",
-    description:
-      "Look up any shipment ever logged — by client, supplier, container number, or reference.",
-    status: "5 records indexed",
-    href: "/search",
-  },
-  {
-    berth: "Berth 04 — Import",
-    accent: "coral",
-    Icon: IconUpload,
-    title: "Import",
-    description:
-      "Bring in new manifests and booking confirmations, and Portivo will slot them straight into the log.",
-    status: "Ready for upload",
-    href: "/import",
-  },
-  {
-    berth: "Berth 05 — Analytics",
-    accent: "teal",
-    Icon: IconChart,
-    title: "Analytics",
-    description:
-      "Volumes, lanes, and turnaround times over time — see which routes are speeding up, and which are slipping.",
-    status: "Updated weekly",
-    href: "/analytics",
-  },
-  {
-    berth: "Berth 06 — Add entry",
-    accent: "slate",
-    Icon: IconPlus,
-    title: "Add entry",
-    description:
-      "Log a new shipment by hand — container number, route, carrier, and status — straight into the manifest.",
-    status: "Manual log entry",
-    href: "/AddEntry",
-  },
-  {
-    berth: "Berth 07 — Archives",
-    accent: "slate",
-    Icon: IconArchive ,
-    title: "Archives",
-    description:
-      "Browse the full historical record — every container on file, grouped by arrival month, searchable by year.",
-    status: "Historical record",
-    href: "/Archives",
-  },
-];
+function getPortsOfCall(t) {
+  return [
+    {
+      berth: t("home.berth1"),
+      accent: "teal",
+      Icon: IconShip,
+      title: t("nav.arrivals"),
+      description: t("home.descArrivals"),
+      status: t("home.statusArrivals"),
+      href: "/arrivals",
+    },
+    {
+      berth: t("home.berth2"),
+      accent: "amber",
+      Icon: IconBox,
+      title: t("nav.containers"),
+      description: t("home.descContainers"),
+      status: t("home.statusContainers"),
+      href: "/containers",
+    },
+    {
+      berth: t("home.berth3"),
+      accent: "ink",
+      Icon: IconSearch,
+      title: t("nav.search"),
+      description: t("home.descSearch"),
+      status: t("home.statusSearch"),
+      href: "/search",
+    },
+    {
+      berth: t("home.berth4"),
+      accent: "coral",
+      Icon: IconUpload,
+      title: t("nav.import"),
+      description: t("home.descImport"),
+      status: t("home.statusImport"),
+      href: "/import",
+    },
+    {
+      berth: t("home.berth5"),
+      accent: "teal",
+      Icon: IconChart,
+      title: t("nav.analytics"),
+      description: t("home.descAnalytics"),
+      status: t("home.statusAnalytics"),
+      href: "/analytics",
+    },
+    {
+      berth: t("home.berth6"),
+      accent: "slate",
+      Icon: IconPlus,
+      title: t("nav.addEntry"),
+      description: t("home.descAddEntry"),
+      status: t("home.statusAddEntry"),
+      href: "/AddEntry",
+    },
+    {
+      berth: t("home.berth7"),
+      accent: "slate",
+      Icon: IconArchive,
+      title: t("nav.archives"),
+      description: t("home.descArchives"),
+      status: t("home.statusArchives"),
+      href: "/Archives",
+    },
+  ];
+}
 
-const LEDGER_ITEMS = [
-  { num: "03", label: "Arriving this week", variant: "" },
-  { num: "01", label: "Awaiting customs", variant: "note" },
-  { num: "00", label: "Past ETA", variant: "good" },
-  { num: "05", suffix: "/ logged", label: "Shipments on record", variant: "" },
-];
+function getLedgerItems(t) {
+  return [
+    { num: "03", label: t("arrivals.kpiArrivingWeek"), variant: "" },
+    { num: "01", label: t("arrivals.kpiAwaitingCustoms"), variant: "note" },
+    { num: "00", label: t("arrivals.kpiPastEta"), variant: "good" },
+    { num: "05", suffix: t("home.ledgerLoggedSuffix"), label: t("home.ledgerShipmentsOnRecord"), variant: "" },
+  ];
+}
 
 export default function Home() {
+  const { t } = useLanguage();
+  const PORTS_OF_CALL = getPortsOfCall(t);
+  const LEDGER_ITEMS = getLedgerItems(t);
   return (
     <div className="portivo-root">
       <style>{CSS}</style>
@@ -372,43 +373,42 @@ export default function Home() {
         <div className="hero-topbar">
           <span className="brand">Portivo</span>
           <nav>
-            <Link to="/arrivals">Arrivals</Link>
-            <Link to="/containers">Containers</Link>
-            <Link to="/search">Search</Link>
-            <Link to="/import">Import</Link>
-            <Link to="/analytics">Analytics</Link>
-            <Link to="/AddEntry">Add Entry</Link>
-            <Link to="/Archives">Archives</Link>
+            <Link to="/arrivals">{t("nav.arrivals")}</Link>
+            <Link to="/containers">{t("nav.containers")}</Link>
+            <Link to="/search">{t("nav.search")}</Link>
+            <Link to="/import">{t("nav.import")}</Link>
+            <Link to="/analytics">{t("nav.analytics")}</Link>
+            <Link to="/AddEntry">{t("nav.addEntry")}</Link>
+            <Link to="/Archives">{t("nav.archives")}</Link>
           </nav>
           <span className="sync">
             <span className="sync-dot" />
-            Synced 11:51
+            {t("home.syncedPrefix")} 11:51
           </span>
         </div>
 
         <div className="hero-content">
           <p className="eyebrow reveal" style={{ animationDelay: ".05s" }}>
-            Tunis–Goulette terminal · Port operations
+            {t("home.heroEyebrow")}
           </p>
           <h1 className="reveal" style={{ animationDelay: ".15s" }}>
             Portivo
           </h1>
           <p className="tagline reveal" style={{ animationDelay: ".3s" }}>
-            Every container <em>charted</em> from the moment it leaves port, until the moment it
-            clears yours.
+            {t("home.taglinePrefix")} <em>{t("home.taglineEmphasis")}</em> {t("home.taglineSuffix")}
           </p>
           <a className="hero-cta reveal" style={{ animationDelay: ".45s" }} href="#calls">
-            View today&rsquo;s arrivals &rarr;
+            {t("home.heroCta")} &rarr;
           </a>
         </div>
 
         <div className="hero-scroll">
-          <span>Log</span>
+          <span>{t("home.scrollLog")}</span>
           <span className="line" />
         </div>
       </section>
 
-      <section className="ledger" aria-label="Today's summary">
+      <section className="ledger" aria-label={t("home.todaysSummary")}>
         {LEDGER_ITEMS.map((item) => (
           <div className={`ledger-item ${item.variant}`} key={item.label}>
             <div className="num">
@@ -422,8 +422,8 @@ export default function Home() {
 
       <section className="calls" id="calls">
         <div className="calls-head">
-          <h2>Ports of call</h2>
-          <p>Five berths, one terminal. Everything you track in Portivo, in one line of sight.</p>
+          <h2>{t("home.portsOfCallTitle")}</h2>
+          <p>{t("home.portsOfCallSubtitle")}</p>
         </div>
 
         <div className="calls-grid">
@@ -446,7 +446,7 @@ export default function Home() {
 
       <footer>
         <span className="brand">Portivo</span>
-        <span className="coords">Tunis–Goulette · 36.8°N 10.3°E · Port operations, charted</span>
+        <span className="coords">{t("home.footerCoords")}</span>
       </footer>
     </div>
   );

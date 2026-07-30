@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 import {
   ArrowLeft, AlertCircle, Package, FileText,
   CheckCircle, Clock, ClipboardList,
@@ -15,12 +16,14 @@ if (typeof document !== "undefined" && !document.getElementById("pvd-gf")) {
   document.head.appendChild(l);
 }
 
-const statusConfig = {
-  in_transit:    { label: "In transit",    color: "#185FA5", bg: "#E6F1FB", accent: "#185FA5" },
-  customs:       { label: "In customs",    color: "#854F0B", bg: "#FAEEDA", accent: "#C9912B" },
-  arriving_soon: { label: "Arriving soon", color: "#3B6D11", bg: "#EAF3DE", accent: "#2F7E6C" },
-  delivered:     { label: "Delivered",     color: "#444441", bg: "#F1EFE8", accent: "#6E7F87" },
-};
+function getStatusConfig(t) {
+  return {
+    in_transit:    { label: t("containers.inTransit"),    color: "#185FA5", bg: "#E6F1FB", accent: "#185FA5" },
+    customs:       { label: t("containers.customs"),      color: "#854F0B", bg: "#FAEEDA", accent: "#C9912B" },
+    arriving_soon: { label: t("containers.arrivingSoon"), color: "#3B6D11", bg: "#EAF3DE", accent: "#2F7E6C" },
+    delivered:     { label: t("containers.delivered"),    color: "#444441", bg: "#F1EFE8", accent: "#6E7F87" },
+  };
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -38,17 +41,35 @@ function toInputDate(dateStr) {
   return d.toISOString().slice(0, 10);
 }
 
-const DEFAULT_TIMELINE = [
-  { step: "Departed origin port", date: null, done: true    },
-  { step: "In transit",           date: null, current: true },
-  { step: "Arrived destination",  date: null, done: false   },
-];
+// Timeline steps are stored as short codes ("departed", "in_transit",
+// "arrived") so they can be translated at display time. Older or
+// hand-entered timelines (e.g. from mock/demo data) may carry custom
+// free-text steps instead — those aren't recognized codes, so they're
+// just displayed as-is, unaffected.
+const STEP_CODE_KEYS = {
+  departed:   "containerDetail.defaultStepDeparted",
+  in_transit: "containerDetail.defaultStepInTransit",
+  arrived:    "containerDetail.defaultStepArrived",
+};
+function stepLabel(step, t) {
+  const key = STEP_CODE_KEYS[step];
+  return key ? t(key) : step;
+}
+
+function getDefaultTimeline(t) {
+  return [
+    { step: "departed",   date: null, done: true    },
+    { step: "in_transit", date: null, current: true },
+    { step: "arrived",    date: null, done: false   },
+  ];
+}
 
 const MONO = "'IBM Plex Mono', monospace";
 
 export default function ContainerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("groupages");
   const [container, setContainer] = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -80,7 +101,7 @@ export default function ContainerDetail() {
     );
     const allDelivered = updatedGroupages.length > 0 && updatedGroupages.every(g => g.delivered);
     const patch = { groupages: updatedGroupages };
-    const baseTimeline = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
+    const baseTimeline = container.timeline?.length ? container.timeline : getDefaultTimeline(t);
 
     if (allDelivered && container.status !== "delivered") {
       patch.status = "delivered";
@@ -105,7 +126,7 @@ export default function ContainerDetail() {
       // state will reflect the persisted value once the write completes.
     } catch (err) {
       console.error("Failed to update delivery status", err);
-      alert("Couldn't save the delivery status — please try again.");
+      alert(t("containerDetail.errDeliverySave"));
     } finally {
       setSavingIdx(null);
     }
@@ -121,7 +142,7 @@ export default function ContainerDetail() {
       await storage.updateContainer(container.id, patch);
     } catch (err) {
       console.error("Failed to update timeline", err);
-      alert("Couldn't save the timeline — please try again.");
+      alert(t("containerDetail.errTimelineSave"));
     } finally {
       setSavingTimeline(false);
     }
@@ -134,7 +155,7 @@ export default function ContainerDetail() {
   // stepping back off the final step reverts the status if it had been
   // "delivered".
   function handleTimelineAdvance(index) {
-    const base = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
+    const base = container.timeline?.length ? container.timeline : getDefaultTimeline(t);
     const updated = base.map((step, i) => ({
       ...step,
       done: i < index,
@@ -155,7 +176,7 @@ export default function ContainerDetail() {
   }
 
   function handleTimelineDateChange(index, value) {
-    const base = container.timeline?.length ? container.timeline : DEFAULT_TIMELINE;
+    const base = container.timeline?.length ? container.timeline : getDefaultTimeline(t);
     const updated = base.map((step, i) => i === index ? { ...step, date: value || null } : step);
     persistTimeline({ timeline: updated });
   }
@@ -163,7 +184,7 @@ export default function ContainerDetail() {
   if (loading) {
     return (
       <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-        <p style={{ fontSize: 14 }}>Loading container…</p>
+        <p style={{ fontSize: 14 }}>{t("containerDetail.loading")}</p>
       </div>
     );
   }
@@ -171,32 +192,33 @@ export default function ContainerDetail() {
   if (!container) {
     return (
       <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-        <p style={{ fontSize: 16 }}>Container not found.</p>
+        <p style={{ fontSize: 16 }}>{t("containerDetail.notFound")}</p>
         <button
           onClick={() => navigate("/containers")}
           style={{ marginTop: 16, padding: "8px 20px", border: "1px solid rgba(11,42,61,0.22)", background: "#fff", cursor: "pointer", fontSize: 13, borderRadius: 6 }}
         >
-          Back to containers
+          {t("containerDetail.backToContainers")}
         </button>
       </div>
     );
   }
 
+  const statusConfig = getStatusConfig(t);
   const cfg        = statusConfig[container.status] || statusConfig.in_transit;
   const accentHex  = container.needsAttention ? "#D6492F" : cfg.accent;
   const groupages  = container.groupages?.length ? container.groupages : [];
 
   const tabs = [
-    { key: "groupages", label: "Groupages", icon: Layers      },
-    { key: "timeline",  label: "Timeline",  icon: Clock       },
-    { key: "documents", label: "Documents", icon: FileText, isLink: true },
+    { key: "groupages", label: t("containerDetail.tabGroupages"), icon: Layers      },
+    { key: "timeline",  label: t("containerDetail.tabTimeline"),  icon: Clock       },
+    { key: "documents", label: t("containerDetail.tabDocuments"), icon: FileText, isLink: true },
   ];
 
   const statusStripCells = [
-    { val: cfg.label,                                label: "Current status",  color: cfg.accent  },
-    { val: container.needsAttention ? "Yes" : "No", label: "Needs attention", color: container.needsAttention ? "#D6492F" : "#2F7E6C" },
-    { val: groupages.length,                         label: "Groupages",       color: "#2F7E6C"   },
-    { val: formatDateShort(container.eta),           label: "ETA",             color: "#C9912B"   },
+    { val: cfg.label,                                                                     label: t("containerDetail.statusCurrent"),   color: cfg.accent  },
+    { val: container.needsAttention ? t("containerDetail.yes") : t("containerDetail.no"), label: t("containerDetail.statusAttention"), color: container.needsAttention ? "#D6492F" : "#2F7E6C" },
+    { val: groupages.length,                                                              label: t("containerDetail.statusGroupages"), color: "#2F7E6C"   },
+    { val: formatDateShort(container.eta),                                                label: t("containerDetail.statusEta"),       color: "#C9912B"   },
   ];
 
   return (
@@ -216,11 +238,11 @@ export default function ContainerDetail() {
 
           <div style={{ position: "relative", zIndex: 2, padding: "0 clamp(24px,5vw,48px) 36px" }}>
             <button className="pvd-back" onClick={() => navigate(-1)}>
-              <ArrowLeft size={13} aria-hidden="true" /> Containers
+              <ArrowLeft size={13} aria-hidden="true" /> {t("nav.containers")}
             </button>
 
             <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#9DB5C0", margin: "0 0 12px" }}>
-              Container detail · {container.carrier}
+              {t("containerDetail.eyebrowLabel")} · {container.carrier}
             </p>
 
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
@@ -307,7 +329,7 @@ export default function ContainerDetail() {
           {activeTab === "groupages" && (
             groupages.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
-                No groupages recorded for this container.
+                {t("containerDetail.noGroupages")}
               </div>
             ) : (
               <>
@@ -318,7 +340,7 @@ export default function ContainerDetail() {
                   borderRadius: "10px 10px 0 0",
                   fontFamily: MONO, fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87",
                 }}>
-                  <span>Supplier</span><span>Client</span><span>Reference</span><span>Delivery</span><span>Docs</span>
+                  <span>{t("containerDetail.colSupplier")}</span><span>{t("containerDetail.colClient")}</span><span>{t("containerDetail.colReference")}</span><span>{t("containerDetail.colDelivery")}</span><span>{t("containerDetail.colDocs")}</span>
                 </div>
                 <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
                   {groupages.map((g, i) => {
@@ -329,7 +351,7 @@ export default function ContainerDetail() {
                         key={i}
                         className="pvd-row"
                         onClick={() => navigate(`/containers/${container.id}/documents?g=${i}`)}
-                        title="View this groupage's documents"
+                        title={t("containerDetail.viewDocsTitle")}
                         style={{
                           display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px 90px",
                           padding: "15px 20px", alignItems: "center", background: "#ECE7DA",
@@ -361,10 +383,10 @@ export default function ContainerDetail() {
                               background: g.delivered ? "#EAF3DE" : "#FAEEDA", color: g.delivered ? "#3B6D11" : "#854F0B",
                               border: "none", cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1,
                             }}
-                            aria-label={`Delivery status for ${g.supplier}`}
+                            aria-label={`${t("containerDetail.deliveryStatusFor")} ${g.supplier}`}
                           >
-                            <option value="pending">Pending</option>
-                            <option value="delivered">Delivered</option>
+                            <option value="pending">{t("containerDetail.deliveryPending")}</option>
+                            <option value="delivered">{t("containerDetail.deliveryDelivered")}</option>
                           </select>
                         </div>
 
@@ -385,10 +407,10 @@ export default function ContainerDetail() {
           {activeTab === "timeline" && (
             <>
               <p style={{ fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.08em", color: "#6E7F87", marginBottom: 14 }}>
-                Click a step to make it the current stage — everything before it is marked done. Set a date on any step too.
+                {t("containerDetail.timelineHint")}
               </p>
               <div style={{ display: "flex", flexDirection: "column", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden", opacity: savingTimeline ? 0.7 : 1 }}>
-                {(container.timeline?.length ? container.timeline : DEFAULT_TIMELINE).map((step, i, arr) => {
+                {(container.timeline?.length ? container.timeline : getDefaultTimeline(t)).map((step, i, arr) => {
                   const isLast     = i === arr.length - 1;
                   const dotColor   = step.done ? "#2F7E6C" : step.current ? "#854F0B" : "#D3D1C7";
                   const lineColor  = step.done ? "#2F7E6C" : "#e0ddd4";
@@ -409,15 +431,15 @@ export default function ContainerDetail() {
                           <div style={{ fontFamily: MONO, fontSize: "0.82rem", fontWeight: 600, color: "#0B2A3D", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
                             {step.done    && <CheckCircle  size={14} color="#2F7E6C" />}
                             {step.current && <ClipboardList size={14} color="#854F0B" />}
-                            {step.step}
+                            {stepLabel(step.step, t)}
                             {step.current && (
                               <span style={{ fontFamily: MONO, fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: "#FAEEDA", color: "#854F0B" }}>
-                                Current
+                                {t("containerDetail.current")}
                               </span>
                             )}
                           </div>
                           <div style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.08em", color: "#6E7F87" }}>
-                            {step.date ? formatDate(step.date) : "Date TBD"}
+                            {step.date ? formatDate(step.date) : t("containerDetail.dateTBD")}
                           </div>
                         </div>
                         <div onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6 }}>

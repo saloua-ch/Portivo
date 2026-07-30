@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import * as storage from "../api/storage";
+import { useLanguage } from "../context/LanguageContext";
 
 /* ── Google Fonts (same as Containers) ── */
 if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
@@ -14,31 +15,32 @@ if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
   document.head.appendChild(l);
 }
 
-/* ── Status config ── */
-const STATUS = {
-  in_transit:    { label: "In transit",    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: Ship },
-  customs:       { label: "In customs",    color: "#8a620d", bg: "#F0DDB3", pip: "#C9912B", Icon: ClipboardList },
-  arriving_soon: { label: "Arriving soon", color: "#0e4980", bg: "#B5D4F4", pip: "#185FA5", Icon: Anchor },
-  delivered:     { label: "Delivered",     color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: CheckCircle },
-};
+function getStatus(t) {
+  return {
+    in_transit:    { label: t("containers.inTransit"),    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: Ship },
+    customs:       { label: t("containers.customs"),      color: "#8a620d", bg: "#F0DDB3", pip: "#C9912B", Icon: ClipboardList },
+    arriving_soon: { label: t("containers.arrivingSoon"), color: "#0e4980", bg: "#B5D4F4", pip: "#185FA5", Icon: Anchor },
+    delivered:     { label: t("containers.delivered"),    color: "#2F7E6C", bg: "#C7E0D8", pip: "#2F7E6C", Icon: CheckCircle },
+  };
+}
 
 /* ── Helpers ── */
-function fmtShort(str) {
-  return new Date(str).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+function fmtShort(str, language) {
+  return new Date(str).toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", { day: "numeric", month: "short" });
 }
 function monthKey(str) {
   const d = new Date(str);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
-function monthLabel(key) {
+function monthLabel(key, language) {
   const [y, m] = key.split("-");
   return new Date(Number(y), Number(m) - 1, 1)
-    .toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    .toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", { month: "long", year: "numeric" });
 }
-function monthShort(key) {
+function monthShort(key, language) {
   const [y, m] = key.split("-");
   return new Date(Number(y), Number(m) - 1, 1)
-    .toLocaleDateString("en-GB", { month: "short" }).toUpperCase();
+    .toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", { month: "short" }).toUpperCase();
 }
 function yearOf(key) {
   return key.split("-")[0];
@@ -54,6 +56,7 @@ const YEAR_OPTIONS = ["All", ...Array.from(
 /* ── Main component ── */
 export default function Archives() {
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
   const [containers, setContainers] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [collapsed, setCollapsed]   = useState({});  // monthKey → bool
@@ -107,15 +110,17 @@ export default function Archives() {
   }, [groups]);
 
   const ledgerCells = [
-    { n: totals.months,     label: "Months on file", accent: "#2F7E6C" },
-    { n: totals.containers, label: "Total units",    accent: "#2F7E6C" },
-    { n: totals.delivered,  label: "Delivered",      accent: "#185FA5" },
-    { n: totals.attention,  label: "Had issues",     accent: "#D6492F" },
+    { n: totals.months,     label: t("archives.ledgerMonthsOnFile"), accent: "#2F7E6C" },
+    { n: totals.containers, label: t("archives.ledgerTotalUnits"),   accent: "#2F7E6C" },
+    { n: totals.delivered,  label: t("archives.ledgerDelivered"),    accent: "#185FA5" },
+    { n: totals.attention,  label: t("archives.ledgerHadIssues"),    accent: "#D6492F" },
   ];
 
   function toggle(key) {
     setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
   }
+
+  const STATUS = getStatus(t);
 
   return (
     <div style={ROOT}>
@@ -130,12 +135,12 @@ export default function Archives() {
         />
         <div style={HERO_GRADIENT} />
         <div style={HERO_TINT} />
-        <span style={HERO_CREDIT}>Photo: Unsplash</span>
+        <span style={HERO_CREDIT}>{t("archives.heroPhotoCredit")}</span>
 
         <div style={HERO_CONTENT}>
-          <p style={EYEBROW}>Tunis–Goulette terminal · Historical record</p>
-          <h1 style={H1}>Archives</h1>
-          <p style={HERO_SUB}>All containers on file, grouped by arrival month. Click any row to open the full container record.</p>
+          <p style={EYEBROW}>{t("archives.heroEyebrow")}</p>
+          <h1 style={H1}>{t("archives.title")}</h1>
+          <p style={HERO_SUB}>{t("archives.heroSubtitle")}</p>
         </div>
       </div>
 
@@ -160,9 +165,9 @@ export default function Archives() {
                 key={yr}
                 className={`arc-yr${on ? " on" : ""}${!hasData ? " dim" : ""}`}
                 onClick={() => setSelectedYear(yr)}
-                title={!hasData ? "No containers in this year" : undefined}
+                title={!hasData ? t("archives.noContainersThisYear") : undefined}
               >
-                {yr}
+                {yr === "All" ? t("archives.all") : yr}
               </button>
             );
           })}
@@ -175,12 +180,12 @@ export default function Archives() {
         {loading ? (
           <div style={EMPTY}>
             <Archive size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
-            <p>Loading archive…</p>
+            <p>{t("archives.loadingArchive")}</p>
           </div>
         ) : groups.length === 0 ? (
           <div style={EMPTY}>
             <Archive size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
-            <p>{selectedYear === "All" ? "No containers on file yet." : `No containers found for ${selectedYear}.`}</p>
+            <p>{selectedYear === "All" ? t("archives.noContainersYet") : `${t("archives.noContainersForYearPrefix")} ${selectedYear}.`}</p>
           </div>
         ) : (
           <div style={TIMELINE}>
@@ -212,24 +217,24 @@ export default function Archives() {
                   >
                     {/* Month stamp */}
                     <div style={MONTH_STAMP}>
-                      <div style={MONTH_MON}>{monthShort(key)}</div>
+                      <div style={MONTH_MON}>{monthShort(key, language)}</div>
                       <div style={MONTH_YR}>{thisYear}</div>
                     </div>
 
                     <div style={MONTH_META}>
-                      <span style={MONTH_TITLE}>{monthLabel(key)}</span>
+                      <span style={MONTH_TITLE}>{monthLabel(key, language)}</span>
                       <div style={MONTH_PILLS}>
-                        <span style={PILL_UNIT}>{items.length} unit{items.length !== 1 ? "s" : ""}</span>
+                        <span style={PILL_UNIT}>{items.length} {items.length !== 1 ? t("archives.unitPlural") : t("archives.unitSingular")}</span>
                         {items.filter(c => c.needsAttention).length > 0 && (
                           <span style={PILL_ALERT}>
                             <AlertCircle size={9} />
-                            {items.filter(c => c.needsAttention).length} flagged
+                            {items.filter(c => c.needsAttention).length} {items.filter(c => c.needsAttention).length !== 1 ? t("archives.pillFlaggedPlural") : t("archives.pillFlaggedSingular")}
                           </span>
                         )}
                         {items.filter(c => c.status === "delivered").length > 0 && (
                           <span style={PILL_DONE}>
                             <CheckCircle size={9} />
-                            {items.filter(c => c.status === "delivered").length} delivered
+                            {items.filter(c => c.status === "delivered").length} {items.filter(c => c.status === "delivered").length !== 1 ? t("archives.pillDeliveredPlural") : t("archives.pillDeliveredSingular")}
                           </span>
                         )}
                       </div>
@@ -276,7 +281,7 @@ export default function Archives() {
                             {/* ETA */}
                             <div style={ROW_ETA}>
                               <span style={{ ...PIP, background: c.needsAttention ? "#D6492F" : cfg.pip }} />
-                              {fmtShort(c.eta)}
+                              {fmtShort(c.eta, language)}
                             </div>
 
                             {/* Status tag */}
@@ -303,10 +308,10 @@ export default function Archives() {
 
         {!loading && groups.length > 0 && (
           <p style={FOOTER}>
-            {totals.containers} container{totals.containers !== 1 ? "s" : ""}
-            &nbsp;across&nbsp;
-            {totals.months} month{totals.months !== 1 ? "s" : ""}
-            &nbsp;·&nbsp; Tunis–Goulette terminal
+            {totals.containers} {totals.containers !== 1 ? t("containers.containerPlural") : t("containers.containerSingular")}
+            &nbsp;{t("archives.footerAcross")}&nbsp;
+            {totals.months} {totals.months !== 1 ? t("archives.footerMonthPlural") : t("archives.footerMonthSingular")}
+            &nbsp;·&nbsp; {t("archives.footerTerminalSuffix")}
           </p>
         )}
       </div>

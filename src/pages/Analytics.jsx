@@ -7,6 +7,7 @@
 
 import { useEffect, useRef } from "react";
 import { Chart, registerables } from "chart.js";
+import { useLanguage } from "../context/LanguageContext";
 Chart.register(...registerables);
 
 const C = {
@@ -22,17 +23,24 @@ const C = {
   tonInk: "#DCE6EA",
 };
 
-const MONTHS  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+function getMonths(t) {
+  return [
+    t("analytics.monthJan"), t("analytics.monthFeb"), t("analytics.monthMar"),
+    t("analytics.monthApr"), t("analytics.monthMay"), t("analytics.monthJun"),
+  ];
+}
 const VOLUMES = [4, 6, 5, 8, 7, 12];
 const TREND   = [31, 29, 30, 28, 27, 24];
 
-const STATUSES = [
-  { label: "In transit",      count: 6, color: C.teal,  bg: C.teals  },
-  { label: "In customs",      count: 2, color: C.amber, bg: C.ambers },
-  { label: "Arriving soon",   count: 3, color: C.ink,   bg: C.paper  },
-  { label: "Needs attention", count: 2, color: C.coral, bg: C.corals },
-];
-const TOTAL = STATUSES.reduce((a, s) => a + s.count, 0);
+function getStatuses(t) {
+  return [
+    { label: t("containers.inTransit"),        count: 6, color: C.teal,  bg: C.teals  },
+    { label: t("containers.customs"),           count: 2, color: C.amber, bg: C.ambers },
+    { label: t("containers.arrivingSoon"),      count: 3, color: C.ink,   bg: C.paper  },
+    { label: t("arrivals.needsAttentionBadge"), count: 2, color: C.coral, bg: C.corals },
+  ];
+}
+function getTotal(statuses) { return statuses.reduce((a, s) => a + s.count, 0); }
 
 const LANES = [
   { orig: "Shanghai", avg: 28, prev: 31, color: C.teal  },
@@ -40,25 +48,29 @@ const LANES = [
   { orig: "Valencia", avg: 9,  prev: 9,  color: C.coral },
 ];
 
-const EVENTS = [
-  { type: "ship",   color: C.teal,  bg: C.teals,  title: "MSCU7654321 cleared customs",   sub: "Valencia → Tunis · ETA 2 days",   time: "14:22"  },
-  { type: "alert",  color: C.coral, bg: C.corals, title: "CMAU1234567 delayed in transit", sub: "Shanghai → Tunis · +4d slippage", time: "11:05"  },
-  { type: "check",  color: C.teal,  bg: C.teals,  title: "HLCU8823001 delivered",          sub: "Genoa → Tunis · On time",         time: "09:47"  },
-  { type: "import", color: C.amber, bg: C.ambers, title: "8 containers imported",           sub: "containers_juin_2026.xlsx",       time: "Jun 1"  },
-  { type: "clock",  color: C.ink,   bg: C.paper,  title: "TRLU5512044 entering customs",   sub: "Shanghai → Tunis · Day 27",       time: "May 31" },
-];
+function getEvents(t) {
+  return [
+    { type: "ship",   color: C.teal,  bg: C.teals,  title: t("analytics.event1Title"), sub: t("analytics.event1Sub"), time: "14:22"  },
+    { type: "alert",  color: C.coral, bg: C.corals, title: t("analytics.event2Title"), sub: t("analytics.event2Sub"), time: "11:05"  },
+    { type: "check",  color: C.teal,  bg: C.teals,  title: t("analytics.event3Title"), sub: t("analytics.event3Sub"), time: "09:47"  },
+    { type: "import", color: C.amber, bg: C.ambers, title: t("analytics.event4Title"), sub: "containers_juin_2026.xlsx", time: t("analytics.eventTimeJun1")  },
+    { type: "clock",  color: C.ink,   bg: C.paper,  title: t("analytics.event5Title"), sub: t("analytics.event5Sub"), time: t("analytics.eventTimeMay31") },
+  ];
+}
 
-const KPIS = [
-  { label: "Containers on file",   val: "28",  delta: "↑ 4 this month",     up: true,  accent: C.teal   },
-  { label: "Avg. transit time",    val: "24d", delta: "↓ 3d vs last month", up: true,  accent: C.amber  },
-  { label: "Customs delays",       val: "02",  delta: "↑ 1 vs last month",  up: false, accent: C.coral  },
-  { label: "Delivered this month", val: "07",  delta: "↑ 2 vs prior",       up: true,  accent: C.tonInk },
-];
+function getKpis(t) {
+  return [
+    { label: t("analytics.kpiContainersOnFile"),   val: "28",  delta: t("analytics.kpiDelta1"), up: true,  accent: C.teal   },
+    { label: t("analytics.kpiAvgTransitTime"),     val: "24d", delta: t("analytics.kpiDelta2"), up: true,  accent: C.amber  },
+    { label: t("analytics.kpiCustomsDelays"),      val: "02",  delta: t("analytics.kpiDelta3"), up: false, accent: C.coral  },
+    { label: t("analytics.kpiDeliveredThisMonth"), val: "07",  delta: t("analytics.kpiDelta4"), up: true,  accent: C.tonInk },
+  ];
+}
 
 const MONO = "'IBM Plex Mono', monospace";
 const tickFont = { size: 10, family: MONO };
 
-function useChart(makeConfig) {
+function useChart(makeConfig, deps = []) {
   const canvasRef = useRef(null);
   const chartRef  = useRef(null);
   useEffect(() => {
@@ -67,7 +79,7 @@ function useChart(makeConfig) {
     chartRef.current = new Chart(canvasRef.current, makeConfig());
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, deps);
   return canvasRef;
 }
 
@@ -114,6 +126,8 @@ const IImport = () => <SvgWrap><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-
 const EVENT_ICONS = { ship: <IShip />, alert: <IAlert />, check: <ICheck />, import: <IImport />, clock: <IClock c="currentColor" /> };
 
 function Hero() {
+  const { t } = useLanguage();
+  const KPIS = getKpis(t);
   return (
     <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <img
@@ -126,13 +140,13 @@ function Hero() {
       <div style={{ position: "absolute", inset: 0, background: "rgba(11,42,61,.25)" }} />
       <div style={{ position: "relative", zIndex: 2, padding: "0 52px" }}>
         <p style={mono({ fontSize: 10, letterSpacing: ".22em", textTransform: "uppercase", color: C.teals, marginBottom: 12 })}>
-          Tunis–Goulette Terminal · Fleet Performance
+          {t("analytics.heroEyebrow")}
         </p>
         <h1 style={{ fontFamily: "'Fraunces',serif", fontWeight: 600, fontSize: "clamp(2.6rem,6vw,4.6rem)", lineHeight: .95, letterSpacing: "-.02em", color: C.tonInk, marginBottom: 12 }}>
-          Analytics
+          {t("analytics.title")}
         </h1>
         <p style={{ fontFamily: "'Fraunces',serif", fontWeight: 300, fontSize: "clamp(.88rem,1.5vw,1.1rem)", lineHeight: 1.6, color: "rgba(220,230,234,.72)", maxWidth: "44ch" }}>
-          Live metrics from every active route — volumes, transit times, and customs delays in one view.
+          {t("analytics.heroSubtitle")}
         </p>
       </div>
       <div style={{ position: "relative", zIndex: 2, display: "grid", gridTemplateColumns: "repeat(4,1fr)", marginTop: 28, borderTop: "1px solid rgba(255,255,255,.1)" }}>
@@ -150,6 +164,8 @@ function Hero() {
 }
 
 function BarCard() {
+  const { t } = useLanguage();
+  const MONTHS = getMonths(t);
   const ref = useChart(() => ({
     type: "bar",
     data: {
@@ -163,22 +179,25 @@ function BarCard() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} containers` } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} ${t("analytics.barTooltipSuffix")}` } } },
       scales: {
         x: { grid: { display: false }, ticks: { font: tickFont, color: C.muted } },
         y: { grid: { color: "rgba(11,42,61,.06)" }, ticks: { font: tickFont, color: C.muted, stepSize: 2 }, border: { display: false } },
       },
     },
-  }));
+  }), [t]);
   return (
     <Card>
-      <CardHead title="Monthly volume" sub="Containers handled per month, 2026" iconBg="rgba(47,126,108,.12)" iconEl={<IBar c={C.teal} />} />
+      <CardHead title={t("analytics.barCardTitle")} sub={t("analytics.barCardSub")} iconBg="rgba(47,126,108,.12)" iconEl={<IBar c={C.teal} />} />
       <div style={{ height: 190, position: "relative" }}><canvas ref={ref} /></div>
     </Card>
   );
 }
 
 function DonutCard() {
+  const { t } = useLanguage();
+  const STATUSES = getStatuses(t);
+  const TOTAL = getTotal(STATUSES);
   const ref = useChart(() => ({
     type: "doughnut",
     data: {
@@ -186,16 +205,16 @@ function DonutCard() {
       datasets: [{ data: STATUSES.map(s => s.count), backgroundColor: STATUSES.map(s => s.color), borderWidth: 3, borderColor: C.paper, hoverOffset: 4 }],
     },
     options: { responsive: false, cutout: "68%", plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${c.raw}` } } } },
-  }));
+  }), [t]);
   return (
     <Card>
-      <CardHead title="Fleet status" sub="Active containers breakdown" iconBg="rgba(214,73,47,.12)" iconEl={<IClock c={C.coral} />} />
+      <CardHead title={t("analytics.donutCardTitle")} sub={t("analytics.donutCardSub")} iconBg="rgba(214,73,47,.12)" iconEl={<IClock c={C.coral} />} />
       <div style={{ display: "grid", gridTemplateColumns: "148px 1fr", gap: 22, alignItems: "center" }}>
         <div style={{ position: "relative", width: 148, height: 148, flexShrink: 0 }}>
           <canvas ref={ref} width={148} height={148} style={{ width: 148, height: 148 }} />
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
             <span style={mono({ fontSize: 24, fontWeight: 700, color: C.ink, lineHeight: 1 })}>{TOTAL}</span>
-            <span style={mono({ fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, marginTop: 3 })}>Active</span>
+            <span style={mono({ fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: C.muted, marginTop: 3 })}>{t("analytics.donutActiveLabel")}</span>
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -224,20 +243,22 @@ function DonutCard() {
 }
 
 function LaneCard() {
+  const { t } = useLanguage();
   const cols = "10px 110px 1fr 56px 66px";
   const thSt = mono({ fontSize: 9, letterSpacing: ".14em", textTransform: "uppercase", color: C.muted });
   return (
     <Card>
-      <CardHead title="Lane performance" sub="Average days in transit · vs prior period" iconBg="rgba(201,145,43,.12)" iconEl={<ITrend c={C.amber} />} />
+      <CardHead title={t("analytics.laneCardTitle")} sub={t("analytics.laneCardSub")} iconBg="rgba(201,145,43,.12)" iconEl={<ITrend c={C.amber} />} />
       <div style={{ display: "grid", gridTemplateColumns: cols, gap: 14, paddingBottom: 10, borderBottom: "1px solid rgba(11,42,61,.1)", marginBottom: 2 }}>
-        <span /><span style={thSt}>Origin</span><span style={thSt}>Progress</span>
-        <span style={{ ...thSt, textAlign: "right" }}>Avg</span>
-        <span style={{ ...thSt, textAlign: "right" }}>Δ Period</span>
+        <span /><span style={thSt}>{t("analytics.laneColOrigin")}</span><span style={thSt}>{t("analytics.laneColProgress")}</span>
+        <span style={{ ...thSt, textAlign: "right" }}>{t("analytics.laneColAvg")}</span>
+        <span style={{ ...thSt, textAlign: "right" }}>{t("analytics.laneColDeltaPeriod")}</span>
       </div>
       {LANES.map(l => {
         const d = l.avg - l.prev;
         const deltaColor = d < 0 ? C.teal : d > 0 ? C.coral : C.muted;
-        const deltaText  = d < 0 ? `↓ ${Math.abs(d)}d` : d > 0 ? `↑ ${d}d` : "—";
+        const dAbbrev = t("arrivals.dayAbbrev");
+        const deltaText  = d < 0 ? `↓ ${Math.abs(d)}${dAbbrev}` : d > 0 ? `↑ ${d}${dAbbrev}` : "—";
         return (
           <div key={l.orig} style={{ display: "grid", gridTemplateColumns: cols, gap: 14, alignItems: "center", padding: "13px 0", borderBottom: "1px solid rgba(11,42,61,.05)" }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />
@@ -245,7 +266,7 @@ function LaneCard() {
             <div style={{ height: 4, background: "rgba(11,42,61,.09)", borderRadius: 2, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${(l.avg / 35) * 100}%`, background: l.color, borderRadius: 2 }} />
             </div>
-            <span style={mono({ fontSize: 13, fontWeight: 700, color: C.ink, textAlign: "right" })}>{l.avg}d</span>
+            <span style={mono({ fontSize: 13, fontWeight: 700, color: C.ink, textAlign: "right" })}>{l.avg}{dAbbrev}</span>
             <span style={mono({ fontSize: 10, color: deltaColor, textAlign: "right" })}>{deltaText}</span>
           </div>
         );
@@ -255,6 +276,8 @@ function LaneCard() {
 }
 
 function TrendCard() {
+  const { t } = useLanguage();
+  const MONTHS = getMonths(t);
   const ref = useChart(() => ({
     type: "line",
     data: {
@@ -272,25 +295,27 @@ function TrendCard() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} days avg` } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} ${t("analytics.trendTooltipSuffix")}` } } },
       scales: {
         x: { grid: { display: false }, ticks: { font: tickFont, color: C.muted } },
         y: { grid: { color: "rgba(11,42,61,.06)" }, ticks: { font: tickFont, color: C.muted }, border: { display: false }, reverse: true, min: 20, max: 36 },
       },
     },
-  }));
+  }), [t]);
   return (
     <Card>
-      <CardHead title="Transit trend" sub="6-month rolling average (days)" iconBg="rgba(11,42,61,.08)" iconEl={<ILine c={C.ink} />} />
+      <CardHead title={t("analytics.trendCardTitle")} sub={t("analytics.trendCardSub")} iconBg="rgba(11,42,61,.08)" iconEl={<ILine c={C.ink} />} />
       <div style={{ height: 170, position: "relative" }}><canvas ref={ref} /></div>
     </Card>
   );
 }
 
 function ActivityCard() {
+  const { t } = useLanguage();
+  const EVENTS = getEvents(t);
   return (
     <Card>
-      <CardHead title="Recent activity" sub="Last 5 fleet events" iconBg="rgba(47,126,108,.12)" iconEl={<IFile c={C.teal} />} />
+      <CardHead title={t("analytics.activityCardTitle")} sub={t("analytics.activityCardSub")} iconBg="rgba(47,126,108,.12)" iconEl={<IFile c={C.teal} />} />
       <div>
         {EVENTS.map((e, i) => (
           <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start", padding: "11px 0", borderBottom: i < EVENTS.length - 1 ? "1px solid rgba(11,42,61,.06)" : "none" }}>
@@ -310,6 +335,7 @@ function ActivityCard() {
 }
 
 export default function Analytics() {
+  const { t } = useLanguage();
   const row2 = { display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 20 };
   return (
     <div style={{ fontFamily: "'IBM Plex Sans',sans-serif", background: "#ECE7DA", WebkitFontSmoothing: "antialiased" }}>
@@ -332,7 +358,7 @@ export default function Analytics() {
       </div>
       <footer style={{ background: C.ink, color: "#6F8B9C", padding: "32px 52px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, fontFamily: MONO, fontSize: 10, letterSpacing: ".1em" }}>
         <span style={{ fontFamily: "'Fraunces',serif", fontSize: ".95rem", color: C.tonInk, letterSpacing: ".04em" }}>Portivo</span>
-        <span style={{ textTransform: "uppercase" }}>Tunis–Goulette · 36.8°N 10.3°E · Fleet analytics</span>
+        <span style={{ textTransform: "uppercase" }}>{t("analytics.footerText")}</span>
       </footer>
     </div>
   );
