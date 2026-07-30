@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { geoEqualEarth, geoPath, geoGraticule } from "d3-geo";
 import { feature } from "topojson-client";
-import { Ship, Plane } from "lucide-react";
+import { Ship, Plane, Globe } from "lucide-react";
 import worldTopology from "world-atlas/countries-110m.json";
 import { useLanguage } from "../context/LanguageContext";
 
@@ -301,7 +301,7 @@ function getLedgerItems(t) {
 }
 
 export default function Home() {
-  const { t } = useLanguage();
+  const { t, language, toggleLanguage } = useLanguage();
   const PORTS_OF_CALL = getPortsOfCall(t);
   const LEDGER_ITEMS = getLedgerItems(t);
   return (
@@ -381,9 +381,21 @@ export default function Home() {
             <Link to="/AddEntry">{t("nav.addEntry")}</Link>
             <Link to="/Archives">{t("nav.archives")}</Link>
           </nav>
-          <span className="sync">
-            <span className="sync-dot" />
-            {t("home.syncedPrefix")} 11:51
+          <span className="hero-topbar-right">
+            <button
+              type="button"
+              className="lang-toggle"
+              onClick={toggleLanguage}
+              aria-label="Change language"
+              title={t("topnav.language")}
+            >
+              <Globe size={13} />
+              {language.toUpperCase()}
+            </button>
+            <span className="sync">
+              <span className="sync-dot" />
+              {t("home.syncedPrefix")} 11:51
+            </span>
           </span>
         </div>
 
@@ -587,6 +599,33 @@ const CSS = `
   display:flex;
   align-items:center;
   gap:8px;
+}
+
+.portivo-root .hero-topbar-right{
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+
+.portivo-root .lang-toggle{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:7px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.05);
+  color:var(--text-on-ink-muted);
+  cursor:pointer;
+  font-family:var(--mono);
+  font-size:0.7rem;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  transition:background .15s, color .15s, border-color .15s;
+}
+.portivo-root .lang-toggle:hover{
+  background:rgba(255,255,255,0.1);
+  color:var(--text-on-ink);
 }
 
 .portivo-root .sync-dot{

@@ -102,9 +102,122 @@ export default function TopNav() {
         <line x1="1200" y1="0" x2="1200" y2="64" />
       </svg>
 
-      <Link to="/" className="pv-topnav-brand">
-        Portivo
-      </Link>
+      <div className="pv-topnav-top">
+        <Link to="/" className="pv-topnav-brand">
+          Portivo
+        </Link>
+
+        <div className="pv-topnav-right">
+          {/* Language Switcher */}
+          <div className="pv-topnav-lang-wrap">
+            <button
+              ref={langBtnRef}
+              type="button"
+              className="pv-topnav-lang-btn"
+              onClick={() => setLangOpen(o => !o)}
+              aria-label="Change language"
+              aria-expanded={langOpen}
+              title={t('topnav.language')}
+            >
+              <Globe size={16} />
+              <span className="pv-topnav-lang-text">{language.toUpperCase()}</span>
+            </button>
+
+            {langOpen && (
+              <div ref={langPopRef} className="pv-topnav-lang-pop">
+                <button
+                  onClick={() => {
+                    if (language !== 'en') toggleLanguage();
+                    setLangOpen(false);
+                  }}
+                  className={`pv-topnav-lang-option ${language === 'en' ? 'active' : ''}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => {
+                    if (language !== 'fr') toggleLanguage();
+                    setLangOpen(false);
+                  }}
+                  className={`pv-topnav-lang-option ${language === 'fr' ? 'active' : ''}`}
+                >
+                  Français
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="pv-topnav-bell-wrap">
+            <button
+              ref={btnRef}
+              type="button"
+              className={`pv-topnav-bell ${hasAlerts ? "has-alerts" : ""}`}
+              onClick={() => setOpen(o => !o)}
+              aria-label={hasAlerts ? `${alerts.count} containers need follow-up` : "No alerts"}
+              aria-expanded={open}
+            >
+              <Bell size={16} />
+              {hasAlerts && <span className="pv-topnav-bell-badge">{alerts.count}</span>}
+            </button>
+
+            {open && (
+              <div ref={popRef} className="pv-topnav-pop">
+                <div className="pv-topnav-pop-head">
+                  {hasAlerts ? `${alerts.count} need${alerts.count === 1 ? "s" : ""} follow-up` : "No alerts"}
+                </div>
+
+                {hasAlerts ? (
+                  <ul className="pv-topnav-pop-list">
+                    {alerts.items.map(item => (
+                      <li key={`${item.id}-${item.type}`}>
+                        <Link
+                          to={`/containers/${item.id}`}
+                          className="pv-topnav-pop-row"
+                          onClick={() => setOpen(false)}
+                        >
+                          <span className={`pv-topnav-pop-icon ${item.severity}`}>
+                            {item.type === "etd" ? <Anchor size={12} /> : <Mail size={12} />}
+                          </span>
+                          <span className="pv-topnav-pop-text">
+                            <span className="pv-topnav-pop-number">{item.number}</span>
+                            <span className="pv-topnav-pop-msg">{item.message}</span>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="pv-topnav-pop-empty">All caught up — nothing waiting on a reply.</p>
+                )}
+
+                <Link to="/arrivals" className="pv-topnav-pop-footer" onClick={() => setOpen(false)}>
+                  View Arrivals →
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <span className="pv-topnav-sync">
+            <span className="pv-topnav-dot" aria-hidden="true" />
+            Synced {syncTime}
+          </span>
+
+          {email && (
+            <div className="pv-topnav-user">
+              <span className="pv-topnav-user-email" title={`${t('topnav.signedInAs')} ${email}`}>{email}</span>
+              <button
+                type="button"
+                className="pv-topnav-logout"
+                onClick={handleLogout}
+                title={t('topnav.logout')}
+                aria-label={t('topnav.logout')}
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       <nav className="pv-topnav-links">
         <NavLink to="/arrivals" className={navClass}>{t('nav.arrivals')}</NavLink>
@@ -114,119 +227,7 @@ export default function TopNav() {
         <NavLink to="/analytics" className={navClass}>{t('nav.analytics')}</NavLink>
         <NavLink to="/AddEntry" className={navClass}>{t('nav.addEntry')}</NavLink>
         <NavLink to="/Archives" className={navClass}>{t('nav.archives')}</NavLink>
-
       </nav>
-
-      <div className="pv-topnav-right">
-        {/* Language Switcher */}
-        <div className="pv-topnav-lang-wrap">
-          <button
-            ref={langBtnRef}
-            type="button"
-            className="pv-topnav-lang-btn"
-            onClick={() => setLangOpen(o => !o)}
-            aria-label="Change language"
-            aria-expanded={langOpen}
-            title={t('topnav.language')}
-          >
-            <Globe size={16} />
-            <span className="pv-topnav-lang-text">{language.toUpperCase()}</span>
-          </button>
-
-          {langOpen && (
-            <div ref={langPopRef} className="pv-topnav-lang-pop">
-              <button
-                onClick={() => {
-                  if (language !== 'en') toggleLanguage();
-                  setLangOpen(false);
-                }}
-                className={`pv-topnav-lang-option ${language === 'en' ? 'active' : ''}`}
-              >
-                English
-              </button>
-              <button
-                onClick={() => {
-                  if (language !== 'fr') toggleLanguage();
-                  setLangOpen(false);
-                }}
-                className={`pv-topnav-lang-option ${language === 'fr' ? 'active' : ''}`}
-              >
-                Français
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="pv-topnav-bell-wrap">
-          <button
-            ref={btnRef}
-            type="button"
-            className={`pv-topnav-bell ${hasAlerts ? "has-alerts" : ""}`}
-            onClick={() => setOpen(o => !o)}
-            aria-label={hasAlerts ? `${alerts.count} containers need follow-up` : "No alerts"}
-            aria-expanded={open}
-          >
-            <Bell size={16} />
-            {hasAlerts && <span className="pv-topnav-bell-badge">{alerts.count}</span>}
-          </button>
-
-          {open && (
-            <div ref={popRef} className="pv-topnav-pop">
-              <div className="pv-topnav-pop-head">
-                {hasAlerts ? `${alerts.count} need${alerts.count === 1 ? "s" : ""} follow-up` : "No alerts"}
-              </div>
-
-              {hasAlerts ? (
-                <ul className="pv-topnav-pop-list">
-                  {alerts.items.map(item => (
-                    <li key={`${item.id}-${item.type}`}>
-                      <Link
-                        to={`/containers/${item.id}`}
-                        className="pv-topnav-pop-row"
-                        onClick={() => setOpen(false)}
-                      >
-                        <span className={`pv-topnav-pop-icon ${item.severity}`}>
-                          {item.type === "etd" ? <Anchor size={12} /> : <Mail size={12} />}
-                        </span>
-                        <span className="pv-topnav-pop-text">
-                          <span className="pv-topnav-pop-number">{item.number}</span>
-                          <span className="pv-topnav-pop-msg">{item.message}</span>
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="pv-topnav-pop-empty">All caught up — nothing waiting on a reply.</p>
-              )}
-
-              <Link to="/arrivals" className="pv-topnav-pop-footer" onClick={() => setOpen(false)}>
-                View Arrivals →
-              </Link>
-            </div>
-          )}
-        </div>
-
-        <span className="pv-topnav-sync">
-          <span className="pv-topnav-dot" aria-hidden="true" />
-          Synced {syncTime}
-        </span>
-
-        {email && (
-          <div className="pv-topnav-user">
-            <span className="pv-topnav-user-email" title={`${t('topnav.signedInAs')} ${email}`}>{email}</span>
-            <button
-              type="button"
-              className="pv-topnav-logout"
-              onClick={handleLogout}
-              title={t('topnav.logout')}
-              aria-label={t('topnav.logout')}
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
-        )}
-      </div>
     </header>
   );
 }
@@ -239,14 +240,21 @@ const CSS = `
 .pv-topnav{
   position: relative;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 18px clamp(20px, 4vw, 48px);
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px clamp(20px, 4vw, 48px) 14px;
   background: #0B2A3D;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   font-family: 'IBM Plex Sans', sans-serif;
   overflow: visible;
+}
+
+.pv-topnav-top{
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
 }
 
 .pv-topnav-grid{
@@ -620,9 +628,10 @@ const CSS = `
 @keyframes pv-topnav-blink{ 0%,100%{ opacity: 1; } 50%{ opacity: 0.25; } }
 
 @media (max-width: 860px){
-  .pv-topnav{ flex-direction: column; align-items: flex-start; gap: 14px; }
+  .pv-topnav-top{ flex-wrap: wrap; row-gap: 12px; }
   .pv-topnav-links{ gap: 16px; }
-  .pv-topnav-right{ align-self: flex-start; }
+  .pv-topnav-right{ flex-wrap: wrap; row-gap: 10px; }
+  .pv-topnav-user{ padding-left: 0; border-left: none; }
   .pv-topnav-pop{ right: auto; left: 0; width: min(320px, 90vw); }
 }
 `;
