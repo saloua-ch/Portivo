@@ -21,6 +21,14 @@ function diffDays(dateStr) {
   return Math.round((new Date(dateStr) - today) / 86400000);
 }
 
+// Generated container ids can themselves contain hyphens (e.g.
+// "CNT-mr39eelr-1ke"), so a plain "-" join would be ambiguous to read
+// back — not that we ever parse it apart, but "::" keeps it unambiguous
+// at a glance if this ever shows up in a debugger.
+function followUpKey(containerId, type) {
+  return `${containerId}::${type}`;
+}
+
 function dayLabel(dateStr, t, language) {
   const d = diffDays(dateStr);
   if (d < 0)   return t("containers.overdue");
@@ -195,7 +203,7 @@ function DayGroup({ date, items, onCardClick }) {
 
 // ─── Follow-up banner ─────────────────────────────────────────────────────────
 
-function FollowUpBanner({ container, followUp, onVerify, onClick, busy }) {
+function FollowUpBanner({ container, followUp, onVerify, onClick, busy, selected, onToggleSelect }) {
   const { t } = useLanguage();
   const isOverdue = followUp.days < 0;
   const n = Math.abs(followUp.days);
@@ -219,6 +227,14 @@ function FollowUpBanner({ container, followUp, onVerify, onClick, busy }) {
       border: `1px solid ${isOverdue ? "rgba(214,73,47,.28)" : "rgba(201,145,43,.3)"}`,
       borderRadius: 8,
     }}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggleSelect}
+        disabled={busy}
+        aria-label={`${t("arrivals.selectItem")} ${container.number}`}
+        style={{ width: 15, height: 15, flexShrink: 0, cursor: busy ? "default" : "pointer", accentColor: "#0B2A3D" }}
+      />
       <div style={{
         width: 34, height: 34, borderRadius: 8, flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -272,12 +288,14 @@ function VerifiedNote({ entry }) {
   );
 }
 
-function FollowUpSection({ items, recentlyVerified, onVerify, onClick, pendingKey }) {
+function FollowUpSection({ items, recentlyVerified, onVerify, onVerifyMany, onClick, pendingKeys, selectedKeys, onToggleSelect, onSelectAll, onClearSelection }) {
   const { t } = useLanguage();
   if (items.length === 0 && recentlyVerified.length === 0) return null;
+  const selectedCount = selectedKeys.size;
+  const allSelected = items.length > 0 && selectedCount === items.length;
   return (
     <div style={{ marginBottom: 32 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <AlertCircle size={14} style={{ color: items.length > 0 ? "#D6492F" : "#2F7E6C" }} />
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "#1C2B33", fontWeight: 600 }}>
           {t("arrivals.needsFollowUp")}
@@ -287,17 +305,54 @@ function FollowUpSection({ items, recentlyVerified, onVerify, onClick, pendingKe
             {items.length}
           </span>
         )}
+
+        <div style={{ flex: 1 }} />
+
+        {items.length > 1 && selectedCount === 0 && (
+          <button type="button" onClick={onSelectAll} className="pv-arr-link-btn">
+            {t("arrivals.selectAll")}
+          </button>
+        )}
+        {selectedCount > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontFamily: MONO, fontSize: 10.5, color: "#6E7F87" }}>
+              {t("arrivals.nSelected").replace("{n}", selectedCount)}
+            </span>
+            <button type="button" onClick={onClearSelection} className="pv-arr-link-btn">
+              {t("arrivals.clearSelection")}
+            </button>
+            <button
+              type="button"
+              onClick={onVerifyMany}
+              disabled={pendingKeys.size > 0}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "7px 13px", borderRadius: 7, border: "none", cursor: pendingKeys.size > 0 ? "default" : "pointer",
+                background: "#0B2A3D", color: "#DCE6EA", opacity: pendingKeys.size > 0 ? 0.6 : 1,
+                fontFamily: MONO, fontSize: 10.5, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600,
+              }}
+            >
+              <CheckCircle size={13} />
+              {pendingKeys.size > 0 ? t("arrivals.savingEllipsis") : t("arrivals.confirmSelected").replace("{n}", selectedCount)}
+            </button>
+          </div>
+        )}
       </div>
-      {items.map(({ container, followUp }) => (
-        <FollowUpBanner
-          key={`${container.id}-${followUp.type}`}
-          container={container}
-          followUp={followUp}
-          onVerify={onVerify}
-          onClick={() => onClick(container.id)}
-          busy={pendingKey === `${container.id}-${followUp.type}`}
-        />
-      ))}
+      {items.map(({ container, followUp }) => {
+        const key = followUpKey(container.id, followUp.type);
+        return (
+          <FollowUpBanner
+            key={key}
+            container={container}
+            followUp={followUp}
+            onVerify={onVerify}
+            onClick={() => onClick(container.id)}
+            busy={pendingKeys.has(key)}
+            selected={selectedKeys.has(key)}
+            onToggleSelect={() => onToggleSelect(key)}
+          />
+        );
+      })}
       {recentlyVerified.map(entry => (
         <VerifiedNote key={`${entry.id}-${entry.type}`} entry={entry} />
       ))}
@@ -362,7 +417,8 @@ export default function Arrivals() {
   const [activeTab, setActiveTab]   = useState("this_week");
   const [syncTime, setSyncTime]     = useState("");
   const [recentlyVerified, setRecentlyVerified] = useState([]);
-  const [pendingKey, setPendingKey] = useState(null); // `${id}-${type}` currently saving
+  const [pendingKeys, setPendingKeys] = useState(() => new Set()); // keys currently saving
+  const [selectedKeys, setSelectedKeys] = useState(() => new Set()); // keys checked for bulk confirm
 
   // Load from storage on mount, reload on data changes
   useEffect(() => {
@@ -378,38 +434,75 @@ export default function Arrivals() {
     return unsubscribe;
   }, []);
 
-  // Persist the confirmation so it survives a reload — the followUp check
+  // Persist one confirmation so it survives a reload — the followUp check
   // reads container.etdVerified / etaVerified, not local-only state.
-  const handleVerify = async (containerId, type) => {
+  // Shared by both the single "Mark confirmed" button and the bulk action.
+  const verifyOne = async (containerId, type) => {
     const container = containers.find(c => c.id === containerId);
-    if (!container) return;
-    const key = `${containerId}-${type}`;
-    setPendingKey(key);
+    if (!container) return null;
     const whenIso = new Date().toISOString();
+    await storage.updateContainer(containerId, {
+      [`${type}Verified`]: true,
+      [`${type}VerifiedBy`]: "You",
+      [`${type}VerifiedAt`]: whenIso,
+    });
+    return {
+      id: containerId,
+      type,
+      number: container.number,
+      by: t("arrivals.youLabel"),
+      when: new Date(whenIso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+    };
+  };
+
+  const handleVerify = async (containerId, type) => {
+    const key = followUpKey(containerId, type);
+    setPendingKeys(prev => new Set(prev).add(key));
     try {
-      await storage.updateContainer(containerId, {
-        [`${type}Verified`]: true,
-        [`${type}VerifiedBy`]: "You",
-        [`${type}VerifiedAt`]: whenIso,
-      });
-      setRecentlyVerified(list => [
-        {
-          id: containerId,
-          type,
-          number: container.number,
-          by: t("arrivals.youLabel"),
-          when: new Date(whenIso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
-        },
-        ...list,
-      ]);
+      const entry = await verifyOne(containerId, type);
+      if (entry) setRecentlyVerified(list => [entry, ...list]);
       // storage.onChange (subscribed above) will reload containers with the
       // persisted flag, so the banner disappears and stays gone on refresh.
     } catch (err) {
       console.error("Failed to save confirmation", err);
       alert(t("arrivals.errConfirmSave"));
     } finally {
-      setPendingKey(null);
+      setPendingKeys(prev => { const n = new Set(prev); n.delete(key); return n; });
+      setSelectedKeys(prev => { const n = new Set(prev); n.delete(key); return n; });
     }
+  };
+
+  const handleVerifyMany = async () => {
+    const targets = followUps.filter(({ container, followUp }) => selectedKeys.has(followUpKey(container.id, followUp.type)));
+    if (targets.length === 0) return;
+    const keys = targets.map(({ container, followUp }) => followUpKey(container.id, followUp.type));
+    setPendingKeys(prev => new Set([...prev, ...keys]));
+    const newEntries = [];
+    let hadError = false;
+    // Sequential on purpose — a handful of writes at a time is gentler on
+    // the backend than firing them all at once, and keeps the "Saving…"
+    // state simple to reason about.
+    for (const { container, followUp } of targets) {
+      try {
+        const entry = await verifyOne(container.id, followUp.type);
+        if (entry) newEntries.push(entry);
+      } catch (err) {
+        console.error("Failed to save confirmation", err);
+        hadError = true;
+      }
+    }
+    if (newEntries.length > 0) setRecentlyVerified(list => [...newEntries, ...list]);
+    setPendingKeys(prev => { const n = new Set(prev); keys.forEach(k => n.delete(k)); return n; });
+    setSelectedKeys(new Set());
+    if (hadError) alert(t("arrivals.errConfirmSave"));
+  };
+
+  const toggleSelect = (key) => {
+    setSelectedKeys(prev => {
+      const n = new Set(prev);
+      if (n.has(key)) n.delete(key); else n.add(key);
+      return n;
+    });
   };
 
   const followUps = containers
@@ -460,6 +553,8 @@ export default function Arrivals() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
         .pv-arr-root * { box-sizing: border-box; margin: 0; padding: 0; }
         .pv-arr-root { font-family:'IBM Plex Sans',sans-serif; background:#ECE7DA; -webkit-font-smoothing:antialiased; color:#1C2B33; }
+        .pv-arr-link-btn { background:none; border:none; padding:0; cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.04em; color:#185FA5; text-decoration:none; }
+        .pv-arr-link-btn:hover { text-decoration:underline; }
         @media(max-width:640px){ .pv-arr-body { padding: 24px 20px !important; } }
       `}</style>
 
@@ -513,8 +608,13 @@ export default function Arrivals() {
             items={followUps}
             recentlyVerified={recentlyVerified}
             onVerify={handleVerify}
+            onVerifyMany={handleVerifyMany}
             onClick={id => navigate(`/containers/${id}`)}
-            pendingKey={pendingKey}
+            pendingKeys={pendingKeys}
+            selectedKeys={selectedKeys}
+            onToggleSelect={toggleSelect}
+            onSelectAll={() => setSelectedKeys(new Set(followUps.map(({ container, followUp }) => followUpKey(container.id, followUp.type))))}
+            onClearSelection={() => setSelectedKeys(new Set())}
           />
 
           {loading ? (

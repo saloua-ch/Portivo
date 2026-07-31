@@ -16,7 +16,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import * as storage from "../api/storage";
 import { useLanguage } from "../context/LanguageContext";
-import { Search as SearchIcon, Package, ChevronDown, X, Clock3, ArrowUpRight } from "lucide-react";
+import { Search as SearchIcon, Package, ChevronDown, X, Clock3, ArrowUpRight, AlertTriangle, Ship, Layers } from "lucide-react";
 
 const MONO = "'IBM Plex Mono', monospace";
 
@@ -36,11 +36,27 @@ function buildShipments(containers, t) {
         container: c.number,
         reference: g.reference || g.vente || g.achat || c.ref || "—",
         date: c.eta || null,
+        status: c.status,
+        origin: c.origin || "—",
+        destination: c.destination || "—",
+        carrier: c.carrier || "—",
+        needsAttention: !!c.needsAttention,
+        attentionReason: c.attentionReason || "",
+        groupageCount: (c.groupages || []).length,
       });
     });
   });
   return rows;
 }
+
+// Same color convention used on Containers/Arrivals, so a status badge
+// here always matches what you'd see everywhere else in the app.
+const STATUS_META = {
+  in_transit:    { color: "#2F7E6C", bg: "#C7E0D8" },
+  customs:       { color: "#8a620d", bg: "#F0DDB3" },
+  arriving_soon: { color: "#0e4980", bg: "#B5D4F4" },
+  delivered:     { color: "#2F7E6C", bg: "#C7E0D8" },
+};
 
 function groupByEntity(results) {
   const groups = {};
@@ -73,9 +89,44 @@ const RECENT_SEARCHES = ["Medina Trading", "MSCU7654321", "Carthage Logistics"];
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
+function ShipmentPreview({ s, t }) {
+  const meta = STATUS_META[s.status] || STATUS_META.in_transit;
+  const statusKey = { in_transit: "inTransit", customs: "customs", arriving_soon: "arrivingSoon", delivered: "delivered" }[s.status] || "inTransit";
+  return (
+    <div className="pv-ship-preview">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <span style={{
+          fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase",
+          padding: "3px 8px", borderRadius: 20, background: meta.bg, color: meta.color,
+        }}>
+          {t(`containers.${statusKey}`)}
+        </span>
+        {s.needsAttention && (
+          <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "#D6492F" }}>
+            <AlertTriangle size={11} /> {s.attentionReason || t("containers.attention")}
+          </span>
+        )}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", fontSize: 11.5, color: "#4a5a62" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Ship size={12} style={{ color: "#6E7F87" }} /> {s.carrier}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          {s.origin} <ArrowUpRight size={10} style={{ color: "#A8A39A" }} /> {s.destination}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Layers size={12} style={{ color: "#6E7F87" }} />
+          {s.groupageCount} {s.groupageCount !== 1 ? t("search.shipmentPlural") : t("search.shipmentSingular")}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ClientGroup({ client, shipments, query, index, onSelect }) {
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(true);
+  const [hoveredIdx, setHoveredIdx] = useState(null);
   const initials = client.slice(0, 2).toUpperCase();
 
   return (
@@ -132,39 +183,47 @@ function ClientGroup({ client, shipments, query, index, onSelect }) {
         transition: "max-height .25s ease",
       }}>
         {shipments.map((s, i) => (
-          <div
-            key={i}
-            className="pv-ship-row"
-            onClick={() => onSelect(s.containerId)}
-            title={t("search.openContainerTitle")}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.6fr 1.6fr 1fr 1fr",
-              padding: "11px 16px",
-              alignItems: "center",
-              borderTop: "1px solid rgba(11,42,61,.05)",
-              transition: "background .12s",
-              cursor: "pointer",
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(47,126,108,.07)"}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <Package size={12.5} style={{ color: "#6E7F87", flexShrink: 0 }} />
-              <span style={{ fontFamily: MONO, fontSize: 11.5, color: "#1C2B33", letterSpacing: ".02em" }}>
-                {highlight(s.container, query)}
-              </span>
-            </div>
-            <span style={{ fontSize: 11.5, color: "#6E7F87" }}>
-              {highlight(s.supplier, query)}
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: "#6E7F87" }}>
-              {highlight(s.reference, query)}
-            </span>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: MONO, fontSize: 10, color: "#A8A39A" }}>
-                {formatDate(s.date)}
+          <div key={i}>
+            <div
+              className="pv-ship-row"
+              onClick={() => onSelect(s.containerId)}
+              title={t("search.openContainerTitle")}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1.6fr 1.6fr 1fr 1fr",
+                padding: "11px 16px",
+                alignItems: "center",
+                borderTop: "1px solid rgba(11,42,61,.05)",
+                transition: "background .12s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(47,126,108,.07)"; setHoveredIdx(i); }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; setHoveredIdx(idx => idx === i ? null : idx); }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <Package size={12.5} style={{ color: "#6E7F87", flexShrink: 0 }} />
+                <span style={{ fontFamily: MONO, fontSize: 11.5, color: "#1C2B33", letterSpacing: ".02em" }}>
+                  {highlight(s.container, query)}
+                </span>
               </div>
+              <span style={{ fontSize: 11.5, color: "#6E7F87" }}>
+                {highlight(s.supplier, query)}
+              </span>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: "#6E7F87" }}>
+                {highlight(s.reference, query)}
+              </span>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: "#A8A39A" }}>
+                  {formatDate(s.date)}
+                </div>
+              </div>
+            </div>
+            <div
+              className={`pv-ship-preview-wrap${hoveredIdx === i ? " open" : ""}`}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(idx => idx === i ? null : idx)}
+            >
+              <ShipmentPreview s={s} t={t} />
             </div>
           </div>
         ))}
@@ -513,6 +572,9 @@ export default function Search() {
         .pv-panel-out   { animation: pv-pop-out .16s ease both; }
         .pv-result-row  { animation: pv-row-in .22s ease both; }
         .pv-recent-row  { animation: pv-row-in .22s ease both; }
+        .pv-ship-preview-wrap { max-height: 0; overflow: hidden; transition: max-height .18s ease; background: #FAF8F2; }
+        .pv-ship-preview-wrap.open { max-height: 80px; }
+        .pv-ship-preview { padding: 10px 16px 12px 39px; }
 
         @media(max-width:640px){
           .pv-search-body { padding: 0 20px 40px !important; }

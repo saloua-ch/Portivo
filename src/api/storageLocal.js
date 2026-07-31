@@ -136,6 +136,14 @@ export async function updateContainer(id, patch) {
   return JSON.parse(JSON.stringify(updated));
 }
 
+export async function deleteContainer(id) {
+  await delay();
+  const list = readStore();
+  const next = list.filter(c => c.id !== id);
+  if (next.length === list.length) throw new Error("Not found");
+  writeStore(next);
+}
+
 export async function importContainers(csvText) {
   await delay();
   if (!csvText || !csvText.trim()) return { imported: 0, errors: ["Empty CSV"] };

@@ -9,8 +9,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
+import { Chart, registerables } from "chart.js";
 import * as storage from "../api/storage";
 import { useLanguage } from "../context/LanguageContext";
+Chart.register(...registerables);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -344,24 +346,67 @@ function DropZone({ onFile, isDragging, setIsDragging }) {
   );
 }
 
+/* ── Live chart: containers per sheet, split new vs already-on-file ── */
+function ImportSheetChart({ breakdown, t }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
+    chartRef.current = new Chart(canvasRef.current, {
+      type: "bar",
+      data: {
+        labels: breakdown.map(s => s.name),
+        datasets: [
+          { label: t("import.pcountNew"), data: breakdown.map(s => s.newCount), backgroundColor: "#2F7E6C", borderRadius: 2, stack: "s" },
+          { label: t("import.pcountSkipped"), data: breakdown.map(s => s.conflictCount), backgroundColor: "#D6492F", borderRadius: 2, stack: "s" },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: "top", labels: { boxWidth: 10, font: { size: 10, family: "'IBM Plex Mono',monospace" }, color: "#6E7F87" } } },
+        scales: {
+          x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10, family: "'IBM Plex Mono',monospace" }, color: "#6E7F87" } },
+          y: { stacked: true, beginAtZero: true, grid: { color: "rgba(11,42,61,.06)" }, ticks: { precision: 0, font: { size: 10, family: "'IBM Plex Mono',monospace" }, color: "#6E7F87" }, border: { display: false } },
+        },
+      },
+    });
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [breakdown, t]);
+
+  return <div style={{ height: 130, marginBottom: 16 }}><canvas ref={canvasRef} /></div>;
+}
+
 function PreviewTable({ preview, existingNumbers, onConfirm, onDiscard, importing }) {
   const { t } = useLanguage();
   const { containers, file, sheetsSummary } = preview;
   const newOnes   = containers.filter(c => !existingNumbers.includes(c.number));
   const conflicts = containers.filter(c => existingNumbers.includes(c.number));
   const totalGroupages = newOnes.reduce((a, c) => a + c.groupages.length, 0);
+  const sheetBreakdown = sheetsSummary.map(s => {
+    const inSheet = containers.filter(c => c.sheet === s.name);
+    return {
+      name: s.name,
+      newCount: inSheet.filter(c => !existingNumbers.includes(c.number)).length,
+      conflictCount: inSheet.filter(c => existingNumbers.includes(c.number)).length,
+    };
+  });
 
   return (
     <div style={{ marginBottom: 32 }}>
       <p className="pi-slabel">{t("import.previewPrefix")} {file}</p>
 
-      {/* Sheet pills for archive files */}
+      {/* Live chart + pills for archive files with multiple sheets */}
       {sheetsSummary.length > 1 && (
-        <div className="pi-sheets-strip">
-          {sheetsSummary.map(s => (
-            <span key={s.name} className="pi-sheet-pill">{s.name} · {s.count}</span>
-          ))}
-        </div>
+        <>
+          <ImportSheetChart breakdown={sheetBreakdown} t={t} />
+          <div className="pi-sheets-strip">
+            {sheetsSummary.map(s => (
+              <span key={s.name} className="pi-sheet-pill">{s.name} · {s.count}</span>
+            ))}
+          </div>
+        </>
       )}
 
       {conflicts.length > 0 && (

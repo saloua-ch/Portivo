@@ -336,6 +336,22 @@ export async function updateContainer(id, patch) {
   return clone(rowToContainer(data));
 }
 
+export async function deleteContainer(id) {
+  await delay();
+  await ensureSeeded();
+  ensureRealtime();
+
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("containers")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+
+  emitChange();
+}
+
 export async function importContainers(csvText) {
   await delay();
   if (!csvText || !csvText.trim()) return { imported: 0, errors: ["Empty CSV"] };

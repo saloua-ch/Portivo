@@ -5,7 +5,7 @@ import { useLanguage } from "../context/LanguageContext";
 import ContainerVisual3D from "../components/ContainerVisual3D";
 import {
   ArrowLeft, AlertCircle, Package, FileText,
-  CheckCircle, Clock, ClipboardList,
+  CheckCircle, Clock, ClipboardList, Trash2,
   MapPin, Calendar, Layers, CalendarClock,
 } from "lucide-react";
 
@@ -76,6 +76,7 @@ export default function ContainerDetail() {
   const [loading, setLoading]     = useState(true);
   const [savingIdx, setSavingIdx] = useState(null); // index of groupage row currently saving
   const [savingTimeline, setSavingTimeline] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -182,6 +183,22 @@ export default function ContainerDetail() {
     persistTimeline({ timeline: updated });
   }
 
+  async function handleDelete() {
+    if (!container) return;
+    if (!window.confirm(`${t("containerDetail.confirmDelete")} ${container.number}?`)) return;
+    setDeleting(true);
+    try {
+      await storage.deleteContainer(container.id);
+      navigate("/containers");
+      // storage.onChange (subscribed above) will also fire, but we're
+      // navigating away immediately so there's nothing left here to reload.
+    } catch (err) {
+      console.error("Failed to delete container", err);
+      alert(t("containerDetail.errDeleteFailed"));
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
@@ -238,9 +255,14 @@ export default function ContainerDetail() {
           <div style={{ position: "absolute", inset: 0, background: "rgba(11,42,61,.12)" }} />
 
           <div style={{ position: "relative", zIndex: 2, padding: "0 clamp(24px,5vw,48px) 36px" }}>
-            <button className="pvd-back" onClick={() => navigate(-1)}>
-              <ArrowLeft size={13} aria-hidden="true" /> {t("nav.containers")}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 22 }}>
+              <button className="pvd-back" onClick={() => navigate(-1)}>
+                <ArrowLeft size={13} aria-hidden="true" /> {t("nav.containers")}
+              </button>
+              <button className="pvd-delete" onClick={handleDelete} disabled={deleting}>
+                <Trash2 size={13} aria-hidden="true" /> {deleting ? t("containerDetail.deletingEllipsis") : t("containerDetail.deleteContainer")}
+              </button>
+            </div>
 
             <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#9DB5C0", margin: "0 0 12px" }}>
               {t("containerDetail.eyebrowLabel")} · {container.carrier}
@@ -491,9 +513,19 @@ const CSS = `
   font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
   letter-spacing: 0.18em; text-transform: uppercase;
   color: #9DB5C0; background: none; border: none; cursor: pointer;
-  margin-bottom: 22px; padding: 0; transition: color .15s;
+  padding: 0; transition: color .15s;
 }
 .pvd-back:hover { color: #DCE6EA; }
+.pvd-delete {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(220,230,234,.55); background: none;
+  border: 1px solid rgba(255,255,255,.16); border-radius: 6px;
+  cursor: pointer; padding: 6px 12px; transition: color .15s, border-color .15s, background .15s;
+}
+.pvd-delete:hover:not(:disabled) { color: #F2A98C; border-color: rgba(214,73,47,.5); background: rgba(214,73,47,.1); }
+.pvd-delete:disabled { opacity: .5; cursor: default; }
 .pvd-tab {
   display: flex; align-items: center;
   font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem;

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle, AlertTriangle, Ship, ClipboardList,
-  Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown,
+  Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown, Trash2,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import * as storage from "../api/storage";
@@ -63,6 +63,9 @@ export default function Containers() {
   const [sortAsc, setSortAsc]           = useState(true);
   const [syncTime, setSyncTime]         = useState("");
   const [savingId, setSavingId]         = useState(null); // container id currently saving a status change
+  const [selectedIds, setSelectedIds]   = useState(() => new Set());
+  const [bulkStatus, setBulkStatus]     = useState("in_transit");
+  const [bulkBusy, setBulkBusy]         = useState(false);
 
   // Load from storage on mount, and reload whenever data changes elsewhere
   useEffect(() => {
@@ -90,6 +93,54 @@ export default function Containers() {
     } finally {
       setSavingId(null);
     }
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+
+  // Sequential on purpose — same reasoning as Arrivals' bulk confirm: a
+  // handful of writes at a time is gentler on the backend, and keeps the
+  // "applying…" state simple to reason about than a Promise.all race.
+  async function handleBulkStatusApply() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    let hadError = false;
+    for (const id of ids) {
+      try {
+        await storage.updateContainer(id, { status: bulkStatus });
+      } catch (err) {
+        console.error("Bulk status update failed", err);
+        hadError = true;
+      }
+    }
+    setBulkBusy(false);
+    setSelectedIds(new Set());
+    if (hadError) alert(t('containers.statusUpdateFailed'));
+  }
+
+  async function handleBulkDelete() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (!window.confirm(t('containers.confirmBulkDelete').replace('{n}', ids.length))) return;
+    setBulkBusy(true);
+    let hadError = false;
+    for (const id of ids) {
+      try {
+        await storage.deleteContainer(id);
+      } catch (err) {
+        console.error("Bulk delete failed", err);
+        hadError = true;
+      }
+    }
+    setBulkBusy(false);
+    setSelectedIds(new Set());
+    if (hadError) alert(t('containers.deleteFailed'));
   }
 
   /* counts */
@@ -185,6 +236,18 @@ export default function Containers() {
             <ArrowUpDown size={13} aria-hidden="true" />
             {t('containers.eta')} {sortAsc ? "↑" : "↓"}
           </button>
+          <button
+            style={{ ...SORT_BTN, borderLeft: "1px solid rgba(11,42,61,0.14)" }}
+            onClick={() => setSelectedIds(
+              selectedIds.size === filtered.length
+                ? new Set()
+                : new Set(filtered.map(c => c.id))
+            )}
+          >
+            {selectedIds.size === filtered.length && filtered.length > 0
+              ? t('containers.clearSelection')
+              : t('containers.selectAllVisible')}
+          </button>
         </div>
 
         {/* Filters */}
@@ -205,6 +268,46 @@ export default function Containers() {
             );
           })}
         </div>
+
+        {/* Bulk actions — appears once at least one card is selected */}
+        {selectedIds.size > 0 && (
+          <div style={BULK_BAR}>
+            <span style={BULK_COUNT}>{t('containers.nSelected').replace('{n}', selectedIds.size)}</span>
+            <button className="pvc-link-btn" onClick={() => setSelectedIds(new Set())}>
+              {t('containers.clearSelection')}
+            </button>
+            <div style={{ flex: 1 }} />
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={BULK_LABEL}>{t('containers.setStatusTo')}</span>
+              <select
+                value={bulkStatus}
+                onChange={e => setBulkStatus(e.target.value)}
+                disabled={bulkBusy}
+                className="pvc-status-select"
+                style={{ ...TAG, background: "#fff", color: "#1C2B33", border: "1px solid rgba(11,42,61,0.18)", padding: "6px 10px" }}
+              >
+                {STATUS_OPTIONS.map(key => (
+                  <option key={key} value={key}>{t(`containers.${STATUS[key].labelKey}`)}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              onClick={handleBulkStatusApply}
+              disabled={bulkBusy}
+              style={BULK_APPLY_BTN}
+            >
+              {bulkBusy ? t('common.loading') : t('containers.applyToSelected').replace('{n}', selectedIds.size)}
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkBusy}
+              style={BULK_DELETE_BTN}
+            >
+              <Trash2 size={13} aria-hidden="true" />
+              {t('containers.deleteSelected').replace('{n}', selectedIds.size)}
+            </button>
+          </div>
+        )}
 
         {/* Loading state */}
         {loading ? (
@@ -232,8 +335,18 @@ export default function Containers() {
                   style={{ borderLeftColor: ca }}
                 >
                   <div style={CARD_HEAD}>
-                    <div style={{ ...STAMP, borderColor: ca, color: ca }}>
-                      <span style={STAMP_NUM}>{c.number}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(c.id)}
+                        onChange={() => toggleSelect(c.id)}
+                        onClick={e => e.stopPropagation()}
+                        aria-label={`${t('arrivals.selectItem')} ${c.number}`}
+                        style={{ width: 14, height: 14, flexShrink: 0, cursor: "pointer", accentColor: "#0B2A3D" }}
+                      />
+                      <div style={{ ...STAMP, borderColor: ca, color: ca }}>
+                        <span style={STAMP_NUM}>{c.number}</span>
+                      </div>
                     </div>
                     {c.needsAttention && (
                       <AlertCircle size={14} color="#D6492F" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
@@ -317,6 +430,11 @@ const SRCH_INPUT = { flex: 1, border: "none", background: "none", outline: "none
 const TOTAL_LABEL = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", padding: "12px 20px", borderRight: "1px solid rgba(11,42,61,0.14)" };
 const SORT_BTN = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", letterSpacing: "0.06em", background: "none", border: "none", cursor: "pointer", padding: "12px 16px", color: "#6E7F87", display: "flex", alignItems: "center", gap: 5 };
 const FILT_ROW = { display: "flex", flexWrap: "wrap", border: "1px solid rgba(11,42,61,0.18)", borderTop: "none", background: "#ECE7DA", marginBottom: 28 };
+const BULK_BAR = { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", padding: "12px 16px", marginTop: -28, marginBottom: 20, background: "#E6F1FB", border: "1px solid rgba(24,95,165,0.25)", borderRadius: 8 };
+const BULK_COUNT = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem", fontWeight: 700, color: "#0B2A3D" };
+const BULK_LABEL = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.64rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "#6E7F87" };
+const BULK_APPLY_BTN = { display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 7, border: "none", cursor: "pointer", background: "#0B2A3D", color: "#DCE6EA", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.7rem", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 };
+const BULK_DELETE_BTN = { display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 7, border: "1px solid rgba(214,73,47,0.4)", cursor: "pointer", background: "#fff", color: "#D6492F", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.7rem", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 };
 const GRID = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 1, background: "rgba(11,42,61,0.16)", border: "1px solid rgba(11,42,61,0.18)" };
 const CARD_HEAD = { padding: "13px 15px 10px", borderBottom: "1px solid rgba(11,42,61,0.09)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 };
 const STAMP = { display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid", padding: "4px 8px" };
@@ -365,4 +483,6 @@ const CSS = `
 .pvc-card:hover { background: #F0EBD8; transform: translateY(-3px); z-index: 1; }
 .pvc-status-select { -webkit-appearance: none; appearance: none; }
 .pvc-status-select:focus { outline: 2px solid rgba(11,42,61,0.3); outline-offset: 1px; }
+.pvc-link-btn { background: none; border: none; padding: 0; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: #185FA5; }
+.pvc-link-btn:hover { text-decoration: underline; }
 `;

@@ -54,6 +54,43 @@ const YEAR_OPTIONS = ["All", ...Array.from(
 )];
 
 /* ── Main component ── */
+const MONTH_ABBR_KEYS = [
+  "monthJan", "monthFeb", "monthMar", "monthApr", "monthMay", "monthJun",
+  "monthJul", "monthAug", "monthSep", "monthOct", "monthNov", "monthDec",
+];
+
+/* Year-at-a-glance heatmap — 12 cells, shading by container volume that
+ * month, GitHub-contribution-graph style. Only makes sense for one year
+ * at a time, so it only renders when a specific year is selected. */
+function YearHeatmap({ containers, year, t }) {
+  const counts = Array(12).fill(0);
+  containers.forEach(c => {
+    if (!c.eta) return;
+    const d = new Date(c.eta);
+    if (String(d.getFullYear()) === year) counts[d.getMonth()]++;
+  });
+  const max = Math.max(1, ...counts);
+
+  return (
+    <div style={HEATMAP_WRAP}>
+      <p style={HEATMAP_TITLE}>{t("archives.heatmapTitle")} · {year}</p>
+      <div style={HEATMAP_GRID}>
+        {counts.map((n, i) => {
+          const opacity = n === 0 ? 0.05 : 0.22 + (n / max) * 0.78;
+          return (
+            <div key={i} style={HEATMAP_CELL} title={`${t(`analytics.${MONTH_ABBR_KEYS[i]}`)} ${year} · ${n}`}>
+              <div style={{ ...HEATMAP_SWATCH, background: `rgba(47,126,108,${opacity})` }}>
+                {n > 0 && <span style={HEATMAP_COUNT}>{n}</span>}
+              </div>
+              <span style={HEATMAP_MONTH_LABEL}>{t(`analytics.${MONTH_ABBR_KEYS[i]}`)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Archives() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -173,6 +210,10 @@ export default function Archives() {
           })}
         </div>
       </div>
+
+      {selectedYear !== "All" && (
+        <YearHeatmap containers={containers} year={selectedYear} t={t} />
+      )}
 
       {/* ── Body ── */}
       <div style={BODY}>
@@ -338,6 +379,13 @@ const LEDGER_NUM = { fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, 
 const LEDGER_LABEL = { marginTop: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "#6E7F87" };
 
 const YEAR_SEL_WRAP = { background: "#E2DCCB", borderBottom: "1px solid rgba(11,42,61,0.18)", overflowX: "auto" };
+const HEATMAP_WRAP = { padding: "20px clamp(24px,5vw,48px)", background: "#ECE7DA", borderBottom: "1px solid rgba(11,42,61,0.12)" };
+const HEATMAP_TITLE = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "#6E7F87", marginBottom: 12 };
+const HEATMAP_GRID = { display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 8, maxWidth: 720 };
+const HEATMAP_CELL = { display: "flex", flexDirection: "column", alignItems: "center", gap: 5 };
+const HEATMAP_SWATCH = { width: "100%", aspectRatio: "1", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", transition: "background .2s" };
+const HEATMAP_COUNT = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.68rem", fontWeight: 700, color: "#0B2A3D" };
+const HEATMAP_MONTH_LABEL = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.56rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "#A8A39A" };
 const YEAR_SEL_SCROLL = { display: "flex", minWidth: "max-content" };
 
 

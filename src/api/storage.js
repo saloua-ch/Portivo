@@ -1,4 +1,4 @@
-  // Unified storage API — picks Supabase when configured, otherwise localStorage.
+// Unified storage API — picks Supabase when configured, otherwise localStorage.
   // Pages import from here only; no frontend changes required.
 
   import { isSupabaseConfigured } from "./supabaseClient";
@@ -18,6 +18,7 @@
   export const getContainer = backend.getContainer;
   export const addContainer = backend.addContainer;
   export const updateContainer = backend.updateContainer;
+  export const deleteContainer = backend.deleteContainer;
   export const importContainers = backend.importContainers;
   export const getImportHistory = backend.getImportHistory;
   export const addImportHistory = backend.addImportHistory;
