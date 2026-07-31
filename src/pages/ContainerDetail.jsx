@@ -2,6 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import * as storage from "../api/storage";
 import { useLanguage } from "../context/LanguageContext";
+import ContainerVisual3D from "../components/ContainerVisual3D";
 import {
   ArrowLeft, AlertCircle, Package, FileText,
   CheckCircle, Clock, ClipboardList,
@@ -327,11 +328,23 @@ export default function ContainerDetail() {
 
           {/* GROUPAGES */}
           {activeTab === "groupages" && (
-            groupages.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
-                {t("containerDetail.noGroupages")}
+            <>
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontFamily: MONO, fontSize: "0.68rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "#6E7F87", marginBottom: 10 }}>
+                  {t("addEntry.loadingDiagramTitle")}
+                </p>
+                <ContainerVisual3D
+                  sizeFeet={container.metadata?.size || "20"}
+                  groupages={groupages.map((g, i) => ({ ...g, id: i }))}
+                  t={t}
+                />
               </div>
-            ) : (
+
+              {groupages.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
+              {t("containerDetail.noGroupages")}
+            </div>
+              ) : (
               <>
                 <div style={{
                   display: "grid", gridTemplateColumns: "2fr 2fr 1.2fr 150px 90px",
@@ -400,7 +413,8 @@ export default function ContainerDetail() {
                   })}
                 </div>
               </>
-            )
+              )}
+            </>
           )}
 
           {/* TIMELINE */}

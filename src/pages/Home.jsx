@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { geoEqualEarth, geoPath, geoGraticule } from "d3-geo";
-import { feature } from "topojson-client";
 import { Ship, Plane, Globe } from "lucide-react";
-import worldTopology from "world-atlas/countries-110m.json";
 import { useLanguage } from "../context/LanguageContext";
+import * as storage from "../api/storage";
+import {
+  WIDTH, HEIGHT, projection, pathGenerator, countries, graticuleLines,
+  TUNIS, useRoutePosition,
+} from "../lib/worldMap";
 
 /**
  * Portivo — maritime port-operations landing page
@@ -17,30 +19,10 @@ import { useLanguage } from "../context/LanguageContext";
  * require() interop code that breaks under Vite's dev server; d3-geo
  * and topojson-client are clean ES modules with no such issue) to
  * project real world geography from the world-atlas topojson package,
- * and lucide-react for the boat/plane glyphs. Requires:
+ * and lucide-react for the boat/plane glyphs. Projection/topology setup
+ * lives in lib/worldMap.js, shared with Analytics' lane map. Requires:
  *   npm install d3-geo topojson-client world-atlas lucide-react
  */
-
-const WIDTH = 1440;
-const HEIGHT = 900;
-
-// One shared projection + path generator for the whole map. Centered
-// roughly on the Mediterranean so Tunis sits near the visual middle
-// while Asia, the Americas, and Australia remain visible for context.
-const projection = geoEqualEarth()
-  .rotate([-12, -6, 0])
-  .scale(205)
-  .translate([WIDTH / 2, HEIGHT / 2]);
-
-const pathGenerator = geoPath(projection);
-const graticuleLines = geoGraticule()();
-
-// world-atlas ships a TopoJSON topology; convert its one object
-// ("countries") into GeoJSON features once, at module load.
-const countries = feature(
-  worldTopology,
-  worldTopology.objects.countries
-).features;
 
 const IconShip = (props) => (
   <svg viewBox="0 0 24 24" className="icon" {...props}>
@@ -155,7 +137,6 @@ const IconArchive = (props) => (
 );
 
 /* ---- real-world coordinates as [longitude, latitude] ---- */
-const TUNIS = [10.18, 36.81];
 const CITIES = {
   shanghai: [121.47, 31.23],
   genoa: [8.93, 44.41],
@@ -171,45 +152,6 @@ const ROUTES = [
   { id: "rome", vehicle: "plane", from: CITIES.rome, color: "var(--teal-soft)", duration: 9, offset: 2 },
   { id: "istanbul", vehicle: "plane", from: CITIES.istanbul, color: "var(--amber-soft)", duration: 10, offset: 6 },
 ];
-
-/**
- * Animates a marker's projected [x, y] position along the straight
- * line from `from` to TUNIS (interpolated in lon/lat space, then
- * projected — a reasonable approximation at this scale), looping.
- * Deliberately does NOT rotate the icon — ship and plane glyphs stay
- * upright at all times, which reads cleanly and avoids the
- * "tumbling" artifacts that icon-rotation-along-a-path can produce.
- * Respects prefers-reduced-motion.
- */
-function useRoutePosition(from, to, duration, offset) {
-  const [t, setT] = React.useState(() => (offset % duration) / duration);
-  const frameRef = React.useRef();
-  const startRef = React.useRef(null);
-
-  React.useEffect(() => {
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (reduce) return undefined;
-
-    const tick = (now) => {
-      if (startRef.current === null) startRef.current = now - offset * 1000;
-      const elapsed = now - startRef.current;
-      const cycleMs = duration * 1000;
-      const progress = ((elapsed % cycleMs) + cycleMs) % cycleMs / cycleMs;
-      setT(progress);
-      frameRef.current = requestAnimationFrame(tick);
-    };
-    frameRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [duration, offset]);
-
-  const lon = from[0] + (to[0] - from[0]) * t;
-  const lat = from[1] + (to[1] - from[1]) * t;
-  return projection([lon, lat]);
-}
 
 function RouteVehicle({ from, to, duration, offset, color, vehicle }) {
   const [x, y] = useRoutePosition(from, to, duration, offset);
@@ -291,19 +233,48 @@ function getPortsOfCall(t) {
   ];
 }
 
-function getLedgerItems(t) {
+function pad(n) { return String(n).padStart(2, "0"); }
+
+function diffDays(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = Math.round((new Date(dateStr) - today) / 86400000);
+  return Number.isFinite(d) ? d : null;
+}
+
+/* Same definitions as Arrivals.jsx, so the homepage headline numbers
+ * always agree with what you'd see if you clicked through. */
+function computeLedgerItems(containers, t) {
+  const weekCount = containers.filter(c => { const d = diffDays(c.eta); return d != null && d >= 0 && d <= 7; }).length;
+  const customsCount = containers.filter(c => c.status === "customs").length;
+  const overdueCount = containers.filter(c => { const d = diffDays(c.eta); return d != null && d < 0 && c.status !== "delivered"; }).length;
+  const shipmentsCount = containers.reduce((a, c) => a + (c.groupages?.length || 0), 0);
+
   return [
-    { num: "03", label: t("arrivals.kpiArrivingWeek"), variant: "" },
-    { num: "01", label: t("arrivals.kpiAwaitingCustoms"), variant: "note" },
-    { num: "00", label: t("arrivals.kpiPastEta"), variant: "good" },
-    { num: "05", suffix: t("home.ledgerLoggedSuffix"), label: t("home.ledgerShipmentsOnRecord"), variant: "" },
+    { num: pad(weekCount), label: t("arrivals.kpiArrivingWeek"), variant: "" },
+    { num: pad(customsCount), label: t("arrivals.kpiAwaitingCustoms"), variant: "note" },
+    { num: pad(overdueCount), label: t("arrivals.kpiPastEta"), variant: overdueCount > 0 ? "danger" : "good" },
+    { num: pad(shipmentsCount), suffix: t("home.ledgerLoggedSuffix"), label: t("home.ledgerShipmentsOnRecord"), variant: "" },
   ];
 }
 
 export default function Home() {
   const { t, language, toggleLanguage } = useLanguage();
   const PORTS_OF_CALL = getPortsOfCall(t);
-  const LEDGER_ITEMS = getLedgerItems(t);
+
+  const [containers, setContainers] = useState([]);
+  useEffect(() => {
+    let mounted = true;
+    function load() {
+      storage.getContainers().then(list => { if (mounted) setContainers(list); }).catch(() => {});
+    }
+    load();
+    const unsubscribe = storage.onChange(load);
+    return () => { mounted = false; unsubscribe(); };
+  }, []);
+  const LEDGER_ITEMS = computeLedgerItems(containers, t);
+
   return (
     <div className="portivo-root">
       <style>{CSS}</style>
@@ -770,6 +741,7 @@ const CSS = `
 }
 .portivo-root .ledger-item.note .num{ color:var(--amber); }
 .portivo-root .ledger-item.good .num{ color:var(--teal); }
+.portivo-root .ledger-item.danger .num{ color:var(--coral); }
 
 /* ---------- PORTS OF CALL ---------- */
 .portivo-root .calls{

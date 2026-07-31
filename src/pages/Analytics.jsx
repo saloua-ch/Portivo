@@ -18,6 +18,10 @@ import {
   computeKpis, computeMonthlyVolume, computeStatusBreakdown,
   computeLanePerformance, computeTransitTrend, computeRecentActivity,
 } from "../lib/analyticsData";
+import {
+  pathGenerator, projection, countries, graticuleLines, TUNIS,
+  PORT_COORDS, normalizePortName, useRoutePosition,
+} from "../lib/worldMap";
 Chart.register(...registerables);
 
 const C = {
@@ -335,6 +339,62 @@ function DonutCard({ statusBreakdown }) {
   );
 }
 
+/* ── Small moving dot animating a lane's route, reusing the shared hook ── */
+function LaneRouteDot({ from, to, color, duration }) {
+  const [x, y] = useRoutePosition(from, to, duration, 0);
+  return <circle cx={x} cy={y} r={4} fill={color} stroke="#fff" strokeWidth={1.2} />;
+}
+
+/* ── Compact map plotting real lanes (recognized ports only) on the same
+ * projection/topology used by Home's hero globe, imported from
+ * lib/worldMap so both stay geographically and visually consistent. ── */
+function LaneMap({ lanes }) {
+  const routes = lanes
+    .map(l => ({ ...l, coords: PORT_COORDS[normalizePortName(l.origin)] }))
+    .filter(l => l.coords);
+
+  if (routes.length === 0) return null;
+
+  return (
+    <div className="an-lane-map">
+      <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <path d={pathGenerator(graticuleLines)} fill="none" stroke="rgba(11,42,61,.05)" strokeWidth={1} />
+        {countries.map((country, i) => (
+          <path key={country.id ?? i} d={pathGenerator(country)} fill="rgba(11,42,61,.055)" stroke="rgba(11,42,61,.13)" strokeWidth={0.6} />
+        ))}
+
+        {routes.map(r => (
+          <path
+            key={r.origin}
+            d={pathGenerator({ type: "LineString", coordinates: [r.coords, TUNIS] })}
+            fill="none" stroke={r.color} strokeWidth={2} strokeDasharray="1 7" strokeLinecap="round" opacity={0.75}
+          />
+        ))}
+
+        {routes.map(r => {
+          const [ox, oy] = projection(r.coords);
+          return (
+            <g key={r.origin}>
+              <circle cx={ox} cy={oy} r={5} fill={r.color} opacity={0.9} />
+              <LaneRouteDot from={r.coords} to={TUNIS} color={r.color} duration={10 + r.avgDays / 2} />
+            </g>
+          );
+        })}
+
+        {(() => {
+          const [x, y] = projection(TUNIS);
+          return (
+            <g transform={`translate(${x}, ${y})`}>
+              <circle className="an-tunis-ring" r={6} fill={C.coral} opacity={0.45} />
+              <circle r={5} fill={C.coral} stroke="#fff" strokeWidth={1.5} />
+            </g>
+          );
+        })()}
+      </svg>
+    </div>
+  );
+}
+
 function LaneCard({ lanes }) {
   const { t } = useLanguage();
   const cols = "10px 110px 1fr 56px 66px";
@@ -348,6 +408,7 @@ function LaneCard({ lanes }) {
         <p style={mono({ fontSize: 11.5, color: C.muted, padding: "8px 0 4px" })}>{t("analytics.laneNoData")}</p>
       ) : (
         <>
+          <LaneMap lanes={lanes} />
           <div style={{ display: "grid", gridTemplateColumns: cols, gap: 14, paddingBottom: 10, borderBottom: "1px solid rgba(11,42,61,.1)", marginBottom: 2 }}>
             <span /><span style={thSt}>{t("analytics.laneColOrigin")}</span><span style={thSt}>{t("analytics.laneColProgress")}</span>
             <span style={{ ...thSt, textAlign: "right" }}>{t("analytics.laneColAvg")}</span>
@@ -462,6 +523,10 @@ export default function Analytics() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @media (max-width: 860px) { .an-row2 { grid-template-columns: 1fr !important; } }
+        .an-lane-map { width: 100%; height: 190px; margin-bottom: 16px; border-radius: 8px; overflow: hidden; background: rgba(11,42,61,.02); }
+        .an-lane-map svg { width: 100%; height: 100%; display: block; }
+        .an-tunis-ring { animation: an-pulse 3.2s ease-out infinite; transform-origin: center; transform-box: fill-box; }
+        @keyframes an-pulse { 0% { transform: scale(0.6); opacity: 0.6; } 100% { transform: scale(3); opacity: 0; } }
       `}</style>
 
       <Hero kpis={kpis} />
