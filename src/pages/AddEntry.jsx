@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import * as storage from "../api/storage";
 import { useLanguage } from "../context/LanguageContext";
 import { validateContainerNumber, normalizeContainerNumber } from "../lib/containerNumber";
+import ContainerVisual3D from "../components/ContainerVisual3D";
 import {
   Plus, Trash2, Package, User, Calendar,
   CheckCircle, ArrowLeft, ArrowRight, AlertCircle, AlertTriangle,
@@ -44,13 +45,16 @@ const CARRIERS = ["MSC","Maersk","CMA CGM","Hapag-Lloyd","COSCO","Evergreen","ON
 const NATURE_MARCHANDISE_OPTIONS = ["Textile","Électroménager","Pièces détachées","Produits alimentaires","Matériaux de construction","Meubles","Produits chimiques","Divers"];
 
 const STEP_KEYS = ["container", "groupages", "review"];
-const STEP0_ERROR_KEYS = ["containerNumber", "agent", "arrivalPort", "eta", "embarquementDate", "magasinageDate"];
+const STEP0_ERROR_KEYS = ["containerNumber", "agent", "arrivalPort", "eta", "embarquementDate", "magasinageDate", "containerSize"];
 const STEP1_ERROR_KEYS = ["groupages", "groupageFields"];
+
+// Standard usable capacity in cubic meters for the two container sizes we offer.
+const CAPACITY_M3 = { "20": 33, "40": 67 };
 
 let groupageIdCounter = 0;
 function newGroupage() {
   groupageIdCounter += 1;
-  return { id: groupageIdCounter, shipper: "", bookingDate: "", clientRef: "", supplier: "", client: "", pickupDate: "", weight: "", packages: "", achat: "", vente: "" };
+  return { id: groupageIdCounter, shipper: "", bookingDate: "", clientRef: "", supplier: "", client: "", pickupDate: "", weight: "", packages: "", achat: "", vente: "", volume: "" };
 }
 function cloneGroupage(source) {
   groupageIdCounter += 1;
@@ -63,6 +67,11 @@ function reindexGroupages(list) {
 function isValidTNDAmount(value) {
   if (!value.trim()) return true;
   return /^\d+([.,]\d{1,3})?$/.test(value.trim());
+}
+
+function isValidVolume(value) {
+  if (!value.trim()) return true;
+  return /^\d+([.,]\d{1,2})?$/.test(value.trim());
 }
 
 function formatDate(d) {
@@ -81,13 +90,13 @@ function stepHasErrors(idx, errs) {
 
 function getFormSnapshot(s) {
   return {
-    containerNumber: s.containerNumber, agent: s.agent, origin: s.origin, arrivalPort: s.arrivalPort,
+    containerNumber: s.containerNumber, containerSize: s.containerSize, agent: s.agent, origin: s.origin, arrivalPort: s.arrivalPort,
     carrier: s.carrier, natureMarchandise: s.natureMarchandise, embarquementDate: s.embarquementDate,
     eta: s.eta, magasinageDate: s.magasinageDate, groupages: s.groupages, step: s.step,
   };
 }
 function isSnapshotEmpty(snap) {
-  const hasTopLevel = snap.containerNumber || snap.agent || snap.origin || snap.arrivalPort || snap.carrier || snap.natureMarchandise || snap.embarquementDate || snap.eta || snap.magasinageDate;
+  const hasTopLevel = snap.containerNumber || snap.containerSize || snap.agent || snap.origin || snap.arrivalPort || snap.carrier || snap.natureMarchandise || snap.embarquementDate || snap.eta || snap.magasinageDate;
   const hasGroupage = snap.groupages?.some(g => g.supplier || g.client || g.shipper || g.clientRef);
   return !hasTopLevel && !hasGroupage;
 }
@@ -167,6 +176,8 @@ function ContainerNumberField({ value, onChange, onFieldBlur, error, showError, 
 }
 
 /* ── Groupage card (animated add/remove, duplicate shortcut) ── */
+
+
 function GroupageCard({ g, index, total, errors, showErrors, onUpdate, onRemove, onDuplicate, onFieldBlur, removing, t }) {
   const gErr = errors.groupageFields?.[g.id] || {};
   return (
@@ -242,6 +253,26 @@ function GroupageCard({ g, index, total, errors, showErrors, onUpdate, onRemove,
           </div>
           {showErrors && gErr.vente && <span style={GROUPAGE_ERROR_TEXT}>{gErr.vente}</span>}
         </div>
+      </div>
+
+      {/* Row 4 — volume, highlighted since it drives the loading diagram above */}
+      <div className="pva-volume-row">
+        <div style={GFIELD}>
+          <label style={GLABEL}><Package size={11} /> {t("addEntry.volumeLabel")} <span style={OPTIONAL_TAG_SM}>{t("addEntry.optional")}</span></label>
+          <div style={SELECT_WRAP}>
+            <input
+              type="text" value={g.volume}
+              onChange={e => onUpdate(g.id, "volume", e.target.value)}
+              onBlur={() => onFieldBlur(g.id, "volume")}
+              placeholder={t("addEntry.volumePlaceholder")}
+              style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 34, maxWidth: 160, ...(showErrors && gErr.volume ? INPUT_ERROR : {}) }}
+              className="pva-input"
+            />
+            <span style={{ ...CURRENCY_SUFFIX, right: 11 }}>m³</span>
+          </div>
+          {showErrors && gErr.volume && <span style={GROUPAGE_ERROR_TEXT}>{gErr.volume}</span>}
+        </div>
+        <span className="pva-volume-hint">{t("addEntry.volumeHelp")}</span>
       </div>
     </div>
   );
@@ -319,7 +350,7 @@ function RecapRow({ label, value }) {
 
 /* ── Review step ── */
 function ReviewStep({ data, onEdit, t }) {
-  const { containerNumber, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages } = data;
+  const { containerNumber, containerSize, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages } = data;
   const validGroupages = groupages.filter(g => g.supplier.trim() && g.client.trim());
   return (
     <div style={CARD}>
@@ -330,13 +361,16 @@ function ReviewStep({ data, onEdit, t }) {
       <div style={{ padding: "18px 22px 22px" }}>
         <p style={{ fontSize: "0.85rem", color: "#6E7F87", marginBottom: 18 }}>{t('addEntry.reviewSubtitle')}</p>
 
-        <div style={RECAP_CARD}>
+        <ContainerVisual3D sizeFeet={containerSize} groupages={groupages} t={t} compact />
+
+        <div style={{ ...RECAP_CARD, marginTop: 18 }}>
           <div style={RECAP_CARD_HEAD}>
             <span style={RECAP_CARD_TITLE}>{t('addEntry.recapContainerDetailsTitle')}</span>
             <button type="button" className="pva-edit-link" onClick={() => onEdit(0)}><Pencil size={11} /> {t('addEntry.editStep')}</button>
           </div>
           <div style={RECAP_CARD_BODY}>
             <RecapRow label={t('addEntry.recapContainerNumber')} value={<span style={{ fontFamily: MONO }}>{containerNumber}</span>} />
+            <RecapRow label={t('addEntry.recapSize')} value={containerSize ? `${containerSize}'` : ""} />
             <RecapRow label={t('addEntry.recapAgent')} value={agent} />
             <RecapRow label={t('addEntry.recapShippingLine')} value={carrier} />
             <RecapRow label={t('addEntry.recapPol')} value={origin} />
@@ -362,6 +396,7 @@ function ReviewStep({ data, onEdit, t }) {
                   <RecapRow label={t('addEntry.recapClient')} value={g.client} />
                   <RecapRow label={t('addEntry.recapClientRef')} value={g.clientRef} />
                   <RecapRow label={t('addEntry.recapPoids')} value={g.weight ? `${g.weight} kg` : ""} />
+                  <RecapRow label={t('addEntry.recapVolume')} value={g.volume ? `${g.volume} m³` : ""} />
                   <RecapRow label={t('addEntry.recapColis')} value={g.packages} />
                   <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} TND` : ""} />
                   <RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} TND` : ""} />
@@ -397,6 +432,7 @@ export default function AddEntry() {
   const { t } = useLanguage();
 
   const [containerNumber, setContainerNumber]   = useState("");
+  const [containerSize, setContainerSize]       = useState("");
   const [agent, setAgent]                       = useState("");
   const [origin, setOrigin]                     = useState("");
   const [arrivalPort, setArrivalPort]           = useState("");
@@ -471,19 +507,19 @@ export default function AddEntry() {
   /* ── Draft: autosave, debounced ── */
   useEffect(() => {
     if (showDraftBanner) return;
-    const snapshot = getFormSnapshot({ containerNumber, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages, step });
+    const snapshot = getFormSnapshot({ containerNumber, containerSize, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages, step });
     const timer = setTimeout(() => {
       if (isSnapshotEmpty(snapshot)) localStorage.removeItem(DRAFT_KEY);
       else localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
     }, 500);
     return () => clearTimeout(timer);
-  }, [containerNumber, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages, step, showDraftBanner]);
+  }, [containerNumber, containerSize, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages, step, showDraftBanner]);
 
   function restoreDraft() {
     const d = draftRef.current;
     setShowDraftBanner(false);
     if (!d) return;
-    setContainerNumber(d.containerNumber || ""); setAgent(d.agent || ""); setOrigin(d.origin || "");
+    setContainerNumber(d.containerNumber || ""); setContainerSize(d.containerSize || ""); setAgent(d.agent || ""); setOrigin(d.origin || "");
     setArrivalPort(d.arrivalPort || ""); setCarrier(d.carrier || ""); setNatureMarchandise(d.natureMarchandise || "");
     setEmbarquementDate(d.embarquementDate || ""); setEta(d.eta || ""); setMagasinageDate(d.magasinageDate || "");
     setGroupages(d.groupages?.length ? reindexGroupages(d.groupages) : [newGroupage()]);
@@ -501,6 +537,7 @@ export default function AddEntry() {
     const numCheck = validateContainerNumber(trimmedNumber);
     if (!trimmedNumber) e.containerNumber = t('addEntry.errContainerNumberRequired');
     else if (numCheck.status === "bad_format" || numCheck.status === "incomplete") e.containerNumber = t('addEntry.errContainerNumberFormat');
+    if (!containerSize) e.containerSize = t('addEntry.errContainerSizeRequired');
     if (!agent.trim()) e.agent = t('addEntry.errAgentRequired');
     if (!arrivalPort) e.arrivalPort = t('addEntry.errPodRequired');
     else if (origin.trim() && arrivalPort.trim().toLowerCase() === origin.trim().toLowerCase()) e.arrivalPort = t('addEntry.errPodSameAsPol');
@@ -517,11 +554,12 @@ export default function AddEntry() {
       if (g.bookingDate && g.pickupDate && new Date(g.bookingDate) >= new Date(g.pickupDate)) gErr.pickupDate = t('addEntry.errPickupAfterBooking');
       if (!isValidTNDAmount(g.achat)) gErr.achat = t('addEntry.errAchatFormat');
       if (!isValidTNDAmount(g.vente)) gErr.vente = t('addEntry.errVenteFormat');
+      if (!isValidVolume(g.volume)) gErr.volume = t('addEntry.errVolumeFormat');
       if (Object.keys(gErr).length > 0) groupageErrors[g.id] = gErr;
     });
     if (Object.keys(groupageErrors).length > 0) { e.groupageFields = groupageErrors; e.groupages = e.groupages || t('addEntry.errGroupagesFixHighlighted'); }
     return e;
-  }, [containerNumber, agent, origin, arrivalPort, eta, embarquementDate, magasinageDate, groupages, t]);
+  }, [containerNumber, containerSize, agent, origin, arrivalPort, eta, embarquementDate, magasinageDate, groupages, t]);
 
   const showErr = (name) => Boolean(touched[name] || stepAttempted.has(0));
   const groupagesTouched = stepAttempted.has(1) || Object.keys(touched).some(k => k.startsWith("g-"));
@@ -558,6 +596,9 @@ export default function AddEntry() {
         groupages: groupages
           .filter(g => g.supplier.trim() && g.client.trim())
           .map(({ id, ...rest }) => rest),
+        // No dedicated "size" column exists yet — stored in metadata,
+        // which both storage backends already pass through untouched.
+        metadata: { size: containerSize },
         // Codes, not literal text — ContainerDetail translates these.
         timeline: [
           { step: "departed",   date: embarquementDate || null, done: !!embarquementDate },
@@ -591,7 +632,7 @@ export default function AddEntry() {
   }, [step, errors, submitted, containerNumber, agent, origin, arrivalPort, carrier, natureMarchandise, embarquementDate, eta, magasinageDate, groupages]);
 
   const resetForm = () => {
-    setContainerNumber(""); setAgent(""); setOrigin(""); setArrivalPort("");
+    setContainerNumber(""); setContainerSize(""); setAgent(""); setOrigin(""); setArrivalPort("");
     setCarrier(""); setNatureMarchandise(""); setEmbarquementDate(""); setEta(""); setMagasinageDate(""); setGroupages([newGroupage()]);
     setSubmitted(false); setSavedContainer(null); setSaveError("");
     setStep(0); setTouched({}); setStepAttempted(new Set());
@@ -603,12 +644,12 @@ export default function AddEntry() {
   /* ── Progress: how far along the current step is, for the ship marker ── */
   const stepFraction = useMemo(() => {
     if (step === 0) {
-      const fields = [containerNumber.trim(), agent.trim(), arrivalPort, eta];
+      const fields = [containerNumber.trim(), containerSize, agent.trim(), arrivalPort, eta];
       return fields.filter(Boolean).length / fields.length;
     }
     if (step === 1) return validGroupageCount > 0 ? 1 : 0;
     return 1;
-  }, [step, containerNumber, agent, arrivalPort, eta, validGroupageCount]);
+  }, [step, containerNumber, containerSize, agent, arrivalPort, eta, validGroupageCount]);
   const progressPct = Math.min(100, Math.round(((step + stepFraction) / STEP_KEYS.length) * 100));
 
   /* ── Success / confirmation screen ── */
@@ -628,6 +669,10 @@ export default function AddEntry() {
             {" "}{t('addEntry.successSaved')} {validGroupageCount} {validGroupageCount !== 1 ? t('addEntry.successGroupagePlural') : t('addEntry.successGroupageSingular')}. {t('addEntry.successRecorded')}
           </p>
 
+          <div className="pva-visual-pop">
+            <ContainerVisual3D sizeFeet={containerSize} groupages={groupages} t={t} />
+          </div>
+
           <div style={RECAP_CARD}>
             <div style={RECAP_CARD_HEAD}>
               <Package size={14} style={{ color: "#2F7E6C" }} />
@@ -635,6 +680,7 @@ export default function AddEntry() {
             </div>
             <div style={RECAP_CARD_BODY}>
               <RecapRow label={t('addEntry.recapContainerNumber')} value={<span style={{ fontFamily: MONO }}>{savedContainer.number}</span>} />
+              <RecapRow label={t('addEntry.recapSize')} value={containerSize ? `${containerSize}'` : ""} />
               <RecapRow label={t('addEntry.recapAgent')} value={agent} />
               <RecapRow label={t('addEntry.recapShippingLine')} value={carrier} />
               <RecapRow label={t('addEntry.recapPol')} value={origin} />
@@ -661,6 +707,7 @@ export default function AddEntry() {
                       <RecapRow label={t('addEntry.recapClient')} value={g.client} />
                       <RecapRow label={t('addEntry.recapClientRef')} value={g.clientRef} />
                       <RecapRow label={t('addEntry.recapPoids')} value={g.weight ? `${g.weight} kg` : ""} />
+                      <RecapRow label={t('addEntry.recapVolume')} value={g.volume ? `${g.volume} m³` : ""} />
                       <RecapRow label={t('addEntry.recapColis')} value={g.packages} />
                       <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} TND` : ""} />
                       <RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} TND` : ""} />
@@ -700,6 +747,30 @@ export default function AddEntry() {
                   <span style={CARD_TITLE}>{t('addEntry.containerDetailsTitle')}</span>
                 </div>
                 <div style={CARD_BODY}>
+
+                  <div className="pva-size-picker">
+                    <label style={LABEL}>{t('addEntry.containerSize')} <span style={REQUIRED}>*</span></label>
+                    <div className="pva-size-cards">
+                      {["20", "40"].map(sz => (
+                        <button
+                          key={sz}
+                          type="button"
+                          className={`pva-size-card${containerSize === sz ? " selected" : ""}`}
+                          onClick={() => { setContainerSize(sz); markTouched("containerSize"); }}
+                        >
+                          <span className="pva-size-card-icon" style={{ width: sz === "40" ? 58 : 30 }} />
+                          <span className="pva-size-card-label">{sz === "20" ? t('addEntry.size20') : t('addEntry.size40')}</span>
+                          <span className="pva-size-card-capacity">{CAPACITY_M3[sz]} m³</span>
+                        </button>
+                      ))}
+                    </div>
+                    {showErr("containerSize") && errors.containerSize && <span style={ERROR_TEXT}>{errors.containerSize}</span>}
+                    {containerSize && (
+                      <div className="pva-visual-pop">
+                        <ContainerVisual3D sizeFeet={containerSize} groupages={groupages} t={t} compact />
+                      </div>
+                    )}
+                  </div>
 
                   <div style={FIELD_ROW_3} className="pva-field-row-3">
                     <ContainerNumberField
@@ -787,6 +858,11 @@ export default function AddEntry() {
                   <Package size={15} style={{ color: "#185FA5" }} />
                   <span style={CARD_TITLE}>{t('addEntry.groupagesTitle')}</span>
                   <span style={CARD_COUNT}>{groupages.length}</span>
+                </div>
+
+                <div className="pva-loading-diagram">
+                  <p style={{ ...LABEL, marginBottom: 10 }}>{t('addEntry.loadingDiagramTitle')}</p>
+                  <ContainerVisual3D sizeFeet={containerSize} groupages={groupages} t={t} />
                 </div>
 
                 {groupagesTouched && errors.groupages && (
@@ -960,6 +1036,35 @@ const CSS = `
 .pva-burst { position: absolute; inset: 0; pointer-events: none; }
 .pva-burst span { position: absolute; width: 6px; height: 6px; border-radius: 50%; opacity: 0; animation: pva-burst-out .7s ease-out forwards; }
 @keyframes pva-burst-out { 0% { opacity: 1; transform: translate(0,0) scale(1); } 100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(.4); } }
+
+/* Container size picker */
+.pva-size-picker { margin-bottom: 22px; }
+.pva-size-cards { display: flex; gap: 12px; margin-top: 8px; }
+.pva-size-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 22px; background: #fff; border: 1.5px solid rgba(11,42,61,0.16); border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s, transform .1s; font-family: 'IBM Plex Sans', sans-serif; }
+.pva-size-card:hover { border-color: rgba(24,95,165,0.5); transform: translateY(-1px); }
+.pva-size-card.selected { border-color: #185FA5; background: #E6F1FB; }
+.pva-size-card-icon { height: 20px; background: #0B2A3D; border-radius: 3px; transition: width .2s ease; }
+.pva-size-card.selected .pva-size-card-icon { background: #185FA5; }
+.pva-size-card-label { font-size: 0.82rem; font-weight: 600; color: #1C2B33; }
+.pva-size-card-capacity { font-family: 'IBM Plex Mono', monospace; font-size: 0.66rem; color: #6E7F87; }
+
+/* Container loading diagram */
+.pva-loading-diagram { padding: 0 22px 16px; }
+.pva-container-visual { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.pva-container-visual-readout { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; }
+.pva-container-visual-pct { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 700; }
+.pva-container-visual-warn { display: flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: #D6492F; }
+.pva-container-visual-hint { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: #A8A39A; }
+
+/* Volume field row — highlighted since it drives the diagram above */
+.pva-volume-row { display: flex; align-items: flex-end; gap: 14px; margin-top: 10px; padding: 10px 12px; background: rgba(24,95,165,0.05); border: 1px dashed rgba(24,95,165,0.25); border-radius: 8px; }
+.pva-volume-hint { font-size: 0.72rem; color: #6E7F87; line-height: 1.4; padding-bottom: 8px; }
+
+/* Small entrance pop for standalone preview visuals (step 0, success screen) */
+.pva-visual-pop { animation: pva-visual-pop .35s ease; margin-top: 14px; }
+@keyframes pva-visual-pop { from { opacity: 0; transform: scale(.94) translateY(4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+@media (max-width: 640px) { .pva-size-cards { flex-wrap: wrap; } .pva-volume-row { flex-direction: column; align-items: flex-start; } }
 
 @media (max-width: 900px) { .pva-field-row-3 { grid-template-columns: 1fr 1fr !important; } .pva-groupage-fields-4 { grid-template-columns: 1fr 1fr !important; } }
 @media (max-width: 640px) { .pva-groupage-fields { grid-template-columns: 1fr !important; } .pva-groupage-fields-4 { grid-template-columns: 1fr !important; } .pva-field-row-3 { grid-template-columns: 1fr !important; } .pva-dup-btn span { display: none; } }

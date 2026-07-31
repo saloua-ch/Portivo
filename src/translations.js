@@ -277,6 +277,12 @@ export const translations = {
       containerDetailsTitle: 'Container details',
       containerNumber: 'Container number',
       containerNumberPlaceholder: 'e.g. MSCU7654321',
+      containerSize: 'Container size',
+      size20: "20' (standard)",
+      size40: "40' (standard)",
+      loadingDiagramTitle: 'Loading diagram',
+      emptyContainerHint: 'Add a groupage to see it loaded into the container.',
+      overCapacityWarning: 'This exceeds the container\'s capacity by {amount} m³ — consider a second container.',
       agent: 'Agent',
       agentPlaceholder: 'Type agent name…',
       shippingLine: 'Shipping line',
@@ -312,6 +318,9 @@ export const translations = {
       colisPlaceholder: 'e.g. 36',
       achat: 'Achat (TND)',
       vente: 'Vente (TND)',
+      volumeLabel: 'Volume (CBM)',
+      volumePlaceholder: 'e.g. 4.5',
+      volumeHelp: 'How much space this groupage takes in the container — powers the loading diagram above.',
       addGroupage: 'Add groupage',
 
       // Submit row
@@ -322,6 +331,7 @@ export const translations = {
       // Validation messages
       errContainerNumberRequired: 'Container number is required',
       errContainerNumberFormat: 'Must be 4 letters followed by 7 digits (e.g. MSCU7654321)',
+      errContainerSizeRequired: 'Select a container size',
       errAgentRequired: 'Enter the responsible agent',
       errPodRequired: 'Select an arrival port (POD)',
       errPodSameAsPol: "Discharge port (POD) can't be the same as the loading port (POL)",
@@ -334,6 +344,7 @@ export const translations = {
       errPickupAfterBooking: 'Pickup must be after the booking date',
       errAchatFormat: 'Enter a plain number (TND), e.g. 1500',
       errVenteFormat: 'Enter a plain number (TND), e.g. 1800',
+      errVolumeFormat: 'Enter a plain number (m³), e.g. 4.5',
       errSaveFailed: 'Could not save container.',
 
       // Success / confirmation screen
@@ -347,6 +358,7 @@ export const translations = {
 
       recapContainerDetailsTitle: 'Container details',
       recapContainerNumber: 'Container #',
+      recapSize: 'Size',
       recapAgent: 'Agent',
       recapShippingLine: 'Shipping line',
       recapPol: 'POL',
@@ -360,6 +372,7 @@ export const translations = {
       recapClient: 'Client',
       recapClientRef: 'Réf. client',
       recapPoids: 'Poids',
+      recapVolume: 'Volume',
       recapColis: 'Colis',
       recapAchat: 'Achat',
       recapVente: 'Vente',
@@ -797,6 +810,12 @@ export const translations = {
       containerDetailsTitle: 'Détails du conteneur',
       containerNumber: 'Numéro de conteneur',
       containerNumberPlaceholder: 'ex. MSCU7654321',
+      containerSize: 'Taille du conteneur',
+      size20: "20' (standard)",
+      size40: "40' (standard)",
+      loadingDiagramTitle: 'Schéma de chargement',
+      emptyContainerHint: 'Ajoutez un groupage pour le voir chargé dans le conteneur.',
+      overCapacityWarning: 'Ceci dépasse la capacité du conteneur de {amount} m³ — envisagez un second conteneur.',
       agent: 'Agent',
       agentPlaceholder: "Saisir le nom de l'agent…",
       shippingLine: 'Ligne maritime',
@@ -832,6 +851,9 @@ export const translations = {
       colisPlaceholder: 'ex. 36',
       achat: 'Achat (TND)',
       vente: 'Vente (TND)',
+      volumeLabel: 'Volume (CBM)',
+      volumePlaceholder: 'ex. 4.5',
+      volumeHelp: 'L\'espace que ce groupage occupe dans le conteneur — alimente le schéma de chargement ci-dessus.',
       addGroupage: 'Ajouter un groupage',
 
       // Submit row
@@ -842,6 +864,7 @@ export const translations = {
       // Validation messages
       errContainerNumberRequired: 'Le numéro de conteneur est requis',
       errContainerNumberFormat: 'Doit être 4 lettres suivies de 7 chiffres (ex. MSCU7654321)',
+      errContainerSizeRequired: 'Sélectionnez une taille de conteneur',
       errAgentRequired: "Indiquez l'agent responsable",
       errPodRequired: 'Sélectionnez un port de décharge (POD)',
       errPodSameAsPol: "Le port de décharge (POD) ne peut pas être identique au port de chargement (POL)",
@@ -854,6 +877,7 @@ export const translations = {
       errPickupAfterBooking: 'L\'enlèvement doit être postérieur à la date de booking',
       errAchatFormat: 'Saisissez un nombre simple (TND), ex. 1500',
       errVenteFormat: 'Saisissez un nombre simple (TND), ex. 1800',
+      errVolumeFormat: 'Saisissez un nombre simple (m³), ex. 4.5',
       errSaveFailed: "Impossible d'enregistrer le conteneur.",
 
       // Success / confirmation screen
@@ -867,6 +891,7 @@ export const translations = {
 
       recapContainerDetailsTitle: 'Détails du conteneur',
       recapContainerNumber: 'Conteneur n°',
+      recapSize: 'Taille',
       recapAgent: 'Agent',
       recapShippingLine: 'Ligne maritime',
       recapPol: 'POL',
@@ -880,6 +905,7 @@ export const translations = {
       recapClient: 'Client',
       recapClientRef: 'Réf. client',
       recapPoids: 'Poids',
+      recapVolume: 'Volume',
       recapColis: 'Colis',
       recapAchat: 'Achat',
       recapVente: 'Vente',
