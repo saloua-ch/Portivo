@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle, AlertTriangle, Ship, ClipboardList,
-  Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown, Trash2,
+  Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown, Trash2, X,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import * as storage from "../api/storage";
+import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 import { useLanguage } from "../context/LanguageContext";
 
 /* ── Google Fonts ── */
@@ -63,6 +65,7 @@ export default function Containers() {
   const [sortAsc, setSortAsc]           = useState(true);
   const [syncTime, setSyncTime]         = useState("");
   const [savingId, setSavingId]         = useState(null); // container id currently saving a status change
+  const [deletingId, setDeletingId]     = useState(null); // container id currently being deleted (single-card cross)
   const [selectedIds, setSelectedIds]   = useState(() => new Set());
   const [bulkStatus, setBulkStatus]     = useState("in_transit");
   const [bulkBusy, setBulkBusy]         = useState(false);
@@ -92,6 +95,20 @@ export default function Containers() {
       alert(t('containers.statusUpdateFailed'));
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function handleSingleDelete(containerId, number) {
+    if (!window.confirm(`${t('containerDetail.confirmDelete')} ${number}?`)) return;
+    setDeletingId(containerId);
+    try {
+      await storage.deleteContainer(containerId);
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(containerId); return n; });
+    } catch (err) {
+      console.error("Failed to delete container", err);
+      alert(t('containers.singleDeleteFailed'));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -311,15 +328,9 @@ export default function Containers() {
 
         {/* Loading state */}
         {loading ? (
-          <div style={EMPTY}>
-            <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
-            <p>{t('common.loading')}</p>
-          </div>
+          <LoadingState label={t('common.loading')} />
         ) : filtered.length === 0 ? (
-          <div style={EMPTY}>
-            <Ship size={26} style={{ marginBottom: 10, opacity: 0.35 }} aria-hidden="true" />
-            <p>{t('containers.noMatch')}</p>
-          </div>
+          <EmptyState icon={Ship} title={t('containers.noMatch')} />
         ) : (
           <div style={GRID}>
             {filtered.map(c => {
@@ -334,6 +345,17 @@ export default function Containers() {
                   onClick={() => navigate(`/containers/${c.id}`)}
                   style={{ borderLeftColor: ca }}
                 >
+                  <button
+                    type="button"
+                    className="pvc-delete-cross"
+                    onClick={e => { e.stopPropagation(); handleSingleDelete(c.id, c.number); }}
+                    disabled={deletingId === c.id}
+                    title={t('containerDetail.deleteContainer')}
+                    aria-label={`${t('containerDetail.deleteContainer')} ${c.number}`}
+                  >
+                    <X size={12} />
+                  </button>
+
                   <div style={CARD_HEAD}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                       <input
@@ -448,7 +470,6 @@ const CARD_FOOT = { marginTop: "auto", padding: "9px 15px", borderTop: "1px soli
 const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600, border: "none", cursor: "pointer" };
 const ETA_ROW = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 4 };
 const PIP = { width: 5, height: 5, borderRadius: "50%", flexShrink: 0, display: "inline-block" };
-const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" };
 const FOOTER = { textAlign: "center", marginTop: 18, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.66rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87" };
 
 const CSS = `
@@ -481,6 +502,19 @@ const CSS = `
   position: relative;
 }
 .pvc-card:hover { background: #F0EBD8; transform: translateY(-3px); z-index: 1; }
+.pvc-delete-cross {
+  position: absolute; top: -8px; right: -8px; z-index: 2;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1.5px solid rgba(214,73,47,0.4);
+  color: #D6492F; cursor: pointer; padding: 0;
+  opacity: 0; transform: scale(0.85);
+  transition: opacity .15s, transform .15s, background .15s, border-color .15s, color .15s;
+  box-shadow: 0 2px 6px rgba(11,42,61,0.15);
+}
+.pvc-card:hover .pvc-delete-cross { opacity: 1; transform: scale(1); }
+.pvc-delete-cross:hover:not(:disabled) { background: #D6492F; color: #fff; border-color: #D6492F; }
+.pvc-delete-cross:disabled { opacity: 0.5 !important; cursor: default; }
 .pvc-status-select { -webkit-appearance: none; appearance: none; }
 .pvc-status-select:focus { outline: 2px solid rgba(11,42,61,0.3); outline-offset: 1px; }
 .pvc-link-btn { background: none; border: none; padding: 0; cursor: pointer; font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: #185FA5; }

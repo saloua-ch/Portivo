@@ -22,6 +22,8 @@ import {
   ArrowLeft, FileText, Receipt, FileCheck2, Upload,
   Package, Trash2, Download, Eye, ChevronDown, Plus,
 } from "lucide-react";
+import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 
 const MONO = "'IBM Plex Mono', monospace";
 
@@ -73,22 +75,43 @@ function isPreviewable(mimeType = "") {
   return PREVIEW_PREFIXES.some(p => mimeType.startsWith(p));
 }
 
-function viewDoc(doc) {
-  const { url } = dataUrlToObjectUrl(doc.dataUrl);
-  window.open(url, "_blank", "noopener");
-  // Give the browser 60 s to load it, then free memory.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+async function viewDoc(doc, t) {
+  try {
+    const url = await storage.getDocumentUrl(doc);
+    if (!url) { alert(t("documents.errOpenFailed")); return; }
+    if (doc.dataUrl) {
+      // Legacy inline document — still needs the blob-URL conversion
+      // (data: URLs get blocked by some browsers' window.open).
+      const { url: blobUrl } = dataUrlToObjectUrl(url);
+      window.open(blobUrl, "_blank", "noopener");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    } else {
+      // Real Storage URL — a normal https: link, no conversion needed.
+      window.open(url, "_blank", "noopener");
+    }
+  } catch (err) {
+    console.error("Failed to open document", err);
+    alert(t("documents.errOpenFailed"));
+  }
 }
 
-function downloadDoc(doc) {
-  const { url } = dataUrlToObjectUrl(doc.dataUrl);
-  const a = document.createElement("a");
-  a.href     = url;
-  a.download = doc.fileName || doc.name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+async function downloadDoc(doc, t) {
+  try {
+    const url = await storage.getDocumentUrl(doc);
+    if (!url) { alert(t("documents.errOpenFailed")); return; }
+    const isBlob = !!doc.dataUrl;
+    const finalUrl = isBlob ? dataUrlToObjectUrl(url).url : url;
+    const a = document.createElement("a");
+    a.href     = finalUrl;
+    a.download = doc.fileName || doc.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    if (isBlob) setTimeout(() => URL.revokeObjectURL(finalUrl), 10_000);
+  } catch (err) {
+    console.error("Failed to download document", err);
+    alert(t("documents.errOpenFailed"));
+  }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -137,21 +160,7 @@ export default function Documents() {
     if (!file || !activeGroupage) return;
     setUploading(true);
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader  = new FileReader();
-        reader.onload  = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error("Could not read file"));
-        reader.readAsDataURL(file);
-      });
-      const newDoc = {
-        id:         `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name:       file.name.replace(/\.[^/.]+$/, ""),
-        fileName:   file.name,
-        mimeType:   file.type || "application/octet-stream",
-        size:       file.size,
-        dataUrl,
-        uploadedAt: new Date().toISOString(),
-      };
+      const newDoc = await storage.uploadDocument(container.id, activeIndex, file);
       const updatedGroupages = groupages.map((g, i) =>
         i === activeIndex
           ? { ...g, documents: [...(g.documents || []), newDoc] }
@@ -160,7 +169,7 @@ export default function Documents() {
       await persistGroupages(updatedGroupages);
     } catch (err) {
       console.error("Upload failed", err);
-      alert(t("documents.errUpload"));
+      alert(err.message === "FILE_TOO_LARGE" ? t("documents.errFileTooLarge") : t("documents.errUpload"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -170,6 +179,7 @@ export default function Documents() {
   async function handleDeleteDoc(docId) {
     if (!activeGroupage) return;
     if (!window.confirm(t("documents.confirmRemove"))) return;
+    const doc = (activeGroupage.documents || []).find(d => d.id === docId);
     const updatedGroupages = groupages.map((g, i) =>
       i === activeIndex
         ? { ...g, documents: (g.documents || []).filter(d => d.id !== docId) }
@@ -177,6 +187,9 @@ export default function Documents() {
     );
     try {
       await persistGroupages(updatedGroupages);
+      // Best-effort — the document reference is already gone either way;
+      // worst case a leftover file sits harmlessly in Storage.
+      if (doc) storage.deleteDocument(doc).catch(err => console.error("Failed to remove stored file", err));
     } catch (err) {
       console.error("Delete failed", err);
       alert(t("documents.errRemove"));
@@ -187,8 +200,8 @@ export default function Documents() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-        <p style={{ fontSize: 14 }}>{t("documents.loading")}</p>
+      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <LoadingState label={t("documents.loading")} />
       </div>
     );
   }
@@ -234,9 +247,7 @@ export default function Documents() {
         <div style={{ padding: "32px clamp(24px,5vw,48px) 64px", maxWidth: 900 }}>
 
           {groupages.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
-              {t("documents.noGroupages")}
-            </div>
+            <EmptyState icon={Package} title={t("documents.noGroupages")} />
           ) : (
             <>
               {/* ── Groupage switcher ── */}
@@ -309,9 +320,8 @@ export default function Documents() {
 
               {/* ── Document list ── */}
               {docs.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "44px 20px", color: "#6E7F87", border: "1px dashed rgba(11,42,61,0.18)", borderRadius: 10 }}>
-                  <FileText size={24} style={{ opacity: 0.4, marginBottom: 10, display: "block", margin: "0 auto 10px" }} />
-                  <p style={{ fontFamily: MONO, fontSize: 12 }}>{t("documents.noDocsYet")}</p>
+                <div style={{ border: "1px dashed rgba(11,42,61,0.18)", borderRadius: 10 }}>
+                  <EmptyState icon={FileText} title={t("documents.noDocsYet")} />
                 </div>
               ) : (
                 <div style={{ border: "1px solid rgba(11,42,61,0.18)", borderRadius: 10, overflow: "hidden" }}>
@@ -345,7 +355,7 @@ export default function Documents() {
                           {canView && (
                             <button
                               className="pvdoc-icon-btn"
-                              onClick={() => viewDoc(doc)}
+                              onClick={() => viewDoc(doc, t)}
                               title={t("documents.openNewTab")}
                             >
                               <Eye size={15} />
@@ -353,7 +363,7 @@ export default function Documents() {
                           )}
                           <button
                             className="pvdoc-icon-btn"
-                            onClick={() => downloadDoc(doc)}
+                            onClick={() => downloadDoc(doc, t)}
                             title={t("documents.download")}
                           >
                             <Download size={15} />

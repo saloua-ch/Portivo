@@ -8,6 +8,8 @@ import { useNavigate } from "react-router-dom";
 import * as storage from "../api/storage";
 import { setAlerts } from "../state/alerts";
 import { useLanguage } from "../context/LanguageContext";
+import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 import {
   Ship, ClipboardList, Anchor, CheckCircle,
   AlertCircle, AlertTriangle, Clock, Mail,
@@ -618,15 +620,9 @@ export default function Arrivals() {
           />
 
           {loading ? (
-            <div style={{ textAlign: "center", padding: "56px 0", color: "#6E7F87" }}>
-              <Ship size={28} style={{ opacity: .4, margin: "0 auto 12px", display: "block" }} />
-              <p style={{ fontFamily: MONO, fontSize: 12 }}>{t("arrivals.loadingContainers")}</p>
-            </div>
+            <LoadingState label={t("arrivals.loadingContainers")} />
           ) : grouped.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "56px 0", color: "#6E7F87" }}>
-              <Ship size={28} style={{ opacity: .4, margin: "0 auto 12px", display: "block" }} />
-              <p style={{ fontFamily: MONO, fontSize: 12 }}>{t("arrivals.noContainersPeriod")}</p>
-            </div>
+            <EmptyState icon={Ship} title={t("arrivals.noContainersPeriod")} />
           ) : (
             grouped.map(([date, items]) => (
               <DayGroup

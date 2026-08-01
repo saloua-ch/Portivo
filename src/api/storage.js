@@ -19,6 +19,9 @@
   export const addContainer = backend.addContainer;
   export const updateContainer = backend.updateContainer;
   export const deleteContainer = backend.deleteContainer;
+  export const uploadDocument  = backend.uploadDocument;
+  export const getDocumentUrl  = backend.getDocumentUrl;
+  export const deleteDocument  = backend.deleteDocument;
   export const importContainers = backend.importContainers;
   export const getImportHistory = backend.getImportHistory;
   export const addImportHistory = backend.addImportHistory;

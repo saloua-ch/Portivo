@@ -144,6 +144,45 @@ export async function deleteContainer(id) {
   writeStore(next);
 }
 
+// ─── Groupage documents (local dev fallback) ───────────────────────────────────
+// No real backend to upload to here, so this keeps the original
+// inline-base64 behavior — fine for local-only development. The
+// Supabase backend (storageSupabase.js) is what actually gets a proper
+// Storage bucket; see the interface note there.
+
+const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024; // 15 MB, same cap as the Supabase backend
+
+export async function uploadDocument(containerId, groupageIndex, file) {
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    throw new Error("FILE_TOO_LARGE");
+  }
+  await delay();
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: file.name.replace(/\.[^/.]+$/, ""),
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    size: file.size,
+    dataUrl,
+    uploadedAt: new Date().toISOString(),
+  };
+}
+
+export async function getDocumentUrl(doc) {
+  return doc.dataUrl || null;
+}
+
+export async function deleteDocument() {
+  // no-op — nothing external to clean up; removing the doc from the
+  // groupage's own array (done by the caller) is the whole story locally
+}
+
 export async function importContainers(csvText) {
   await delay();
   if (!csvText || !csvText.trim()) return { imported: 0, errors: ["Empty CSV"] };

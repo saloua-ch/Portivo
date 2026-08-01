@@ -6,6 +6,8 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import * as storage from "../api/storage";
 import { useLanguage } from "../context/LanguageContext";
+import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 
 /* ── Google Fonts (same as Containers) ── */
 if (typeof document !== "undefined" && !document.getElementById("pvc-gf")) {
@@ -219,15 +221,12 @@ export default function Archives() {
       <div style={BODY}>
 
         {loading ? (
-          <div style={EMPTY}>
-            <Archive size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
-            <p>{t("archives.loadingArchive")}</p>
-          </div>
+          <LoadingState label={t("archives.loadingArchive")} />
         ) : groups.length === 0 ? (
-          <div style={EMPTY}>
-            <Archive size={26} style={{ marginBottom: 10, opacity: 0.35 }} />
-            <p>{selectedYear === "All" ? t("archives.noContainersYet") : `${t("archives.noContainersForYearPrefix")} ${selectedYear}.`}</p>
-          </div>
+          <EmptyState
+            icon={Archive}
+            title={selectedYear === "All" ? t("archives.noContainersYet") : `${t("archives.noContainersForYearPrefix")} ${selectedYear}.`}
+          />
         ) : (
           <div style={TIMELINE}>
             {groups.map(([key, items], gi) => {
@@ -425,7 +424,7 @@ const ROW_FLAG = { display: "flex", alignItems: "center", paddingRight: 4, flexS
 const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.56rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600, flexShrink: 0 };
 const PIP = { width: 5, height: 5, borderRadius: "50%", flexShrink: 0, display: "inline-block" };
 
-const EMPTY = { textAlign: "center", padding: "56px 0", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem", color: "#6E7F87", border: "1px solid rgba(11,42,61,0.12)", display: "flex", flexDirection: "column", alignItems: "center" };
+
 const FOOTER = { textAlign: "center", marginTop: 18, fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.66rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87" };
 
 const CSS = `

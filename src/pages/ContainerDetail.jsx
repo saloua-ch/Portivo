@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import * as storage from "../api/storage";
 import { useLanguage } from "../context/LanguageContext";
 import ContainerVisual3D from "../components/ContainerVisual3D";
+import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 import {
   ArrowLeft, AlertCircle, Package, FileText,
   CheckCircle, Clock, ClipboardList, Trash2,
@@ -201,8 +203,8 @@ export default function ContainerDetail() {
 
   if (loading) {
     return (
-      <div style={{ textAlign: "center", paddingTop: 80, color: "#6E7F87", fontFamily: "'IBM Plex Sans', sans-serif" }}>
-        <p style={{ fontSize: 14 }}>{t("containerDetail.loading")}</p>
+      <div style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+        <LoadingState label={t("containerDetail.loading")} />
       </div>
     );
   }
@@ -363,9 +365,7 @@ export default function ContainerDetail() {
               </div>
 
               {groupages.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0", color: "#6E7F87", fontFamily: MONO, fontSize: 12 }}>
-              {t("containerDetail.noGroupages")}
-            </div>
+                <EmptyState icon={Package} title={t("containerDetail.noGroupages")} />
               ) : (
               <>
                 <div style={{

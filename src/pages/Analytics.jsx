@@ -12,8 +12,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Chart, registerables } from "chart.js";
+import { BarChart3 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import * as storage from "../api/storage";
+import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 import {
   computeKpis, computeMonthlyVolume, computeStatusBreakdown,
   computeLanePerformance, computeTransitTrend, computeRecentActivity,
@@ -533,12 +536,10 @@ export default function Analytics() {
 
       <div style={{ padding: "44px 52px", maxWidth: 1280, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
         {loading ? (
-          <div style={{ textAlign: "center", padding: "56px 0", color: C.muted, fontFamily: MONO, fontSize: 12 }}>
-            {t("analytics.loadingAnalytics")}
-          </div>
+          <LoadingState label={t("analytics.loadingAnalytics")} />
         ) : containers.length === 0 ? (
-          <Card style={{ textAlign: "center", padding: "48px 20px" }}>
-            <p style={mono({ fontSize: 12.5, color: C.muted })}>{t("analytics.noDataYet")}</p>
+          <Card style={{ padding: "8px 20px" }}>
+            <EmptyState icon={BarChart3} title={t("analytics.noDataYet")} />
           </Card>
         ) : (
           <>

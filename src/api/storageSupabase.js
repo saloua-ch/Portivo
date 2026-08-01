@@ -352,6 +352,65 @@ export async function deleteContainer(id) {
   emitChange();
 }
 
+// ─── Groupage documents ───────────────────────────────────────────────────────
+// Real Storage bucket (see the 20260801000000 migration) — only a short
+// path reference is kept in the container's groupages JSONB, not the file
+// bytes. Older documents saved before this existed still carry a
+// `dataUrl` (inline base64) instead of a `storagePath`; every function
+// here checks for that first so old and new documents both keep working.
+
+const DOCUMENTS_BUCKET = "container-documents";
+const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024; // 15 MB
+
+export async function uploadDocument(containerId, groupageIndex, file) {
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    throw new Error("FILE_TOO_LARGE");
+  }
+  const supabase = getSupabase();
+  const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+  const path = `${containerId}/${groupageIndex}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(path, file, { contentType: file.type || "application/octet-stream" });
+
+  if (error) throw new Error(error.message);
+
+  return {
+    id: path,
+    name: file.name.replace(/\.[^/.]+$/, ""),
+    fileName: file.name,
+    mimeType: file.type || "application/octet-stream",
+    size: file.size,
+    storagePath: path,
+    uploadedAt: new Date().toISOString(),
+  };
+}
+
+// Returns a URL usable to view/download the document right now. For
+// bucket-backed documents this is a short-lived signed URL (the bucket
+// is private); for legacy inline documents it's just the stored data
+// URL, unchanged.
+export async function getDocumentUrl(doc) {
+  if (doc.dataUrl) return doc.dataUrl;
+  if (!doc.storagePath) throw new Error("Document has no file reference");
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrl(doc.storagePath, 600); // 10 minutes
+
+  if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+export async function deleteDocument(doc) {
+  if (!doc.storagePath) return; // legacy inline document — nothing in Storage to remove
+  const supabase = getSupabase();
+  const { error } = await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.storagePath]);
+  if (error) throw new Error(error.message);
+}
+
 export async function importContainers(csvText) {
   await delay();
   if (!csvText || !csvText.trim()) return { imported: 0, errors: ["Empty CSV"] };
