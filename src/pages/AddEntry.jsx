@@ -307,7 +307,7 @@ function Stepper({ step, progressPct, onStepClick, t }) {
 function Hero({ t }) {
   return (
     <div style={HERO_WRAP}>
-      <img src="https://images.unsplash.com/photo-1506929562872-bb421503ef21?q=80&w=1600&auto=format&fit=crop" alt="Container terminal" style={HERO_IMG} />
+      <img loading="eager" fetchPriority="high" src="/images/add-entry.avif" alt="Container terminal" style={HERO_IMG} />
       <div style={HERO_GRADIENT} />
       <div style={HERO_TINT} />
       <span style={HERO_CREDIT}>Photo: Unsplash</span>
@@ -923,7 +923,7 @@ export default function AddEntry() {
 
 /* ── Styles ── */
 const ROOT         = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
-const HERO_WRAP    = { position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
+const HERO_WRAP    = { position: "relative", height: 560, overflow: "hidden", background: "#0B2A3D", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
 const HERO_IMG     = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%" };
 const HERO_GRADIENT= { position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)" };
 const HERO_TINT    = { position: "absolute", inset: 0, background: "rgba(11,42,61,.1)" };

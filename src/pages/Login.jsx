@@ -39,8 +39,9 @@ export default function Login() {
       {/* ── Left: photo panel ── */}
       <div className="pv-login-hero">
         <img
+          loading="eager" fetchPriority="high"
           className="pv-login-hero-photo"
-          src="https://images.unsplash.com/photo-1720931623686-588ef1014e2a?q=80&w=1200&auto=format&fit=crop"
+          src="/images/terminal.avif"
           alt="Container terminal at Tunis-Goulette"
         />
         <div className="pv-login-hero-gradient" />
@@ -147,6 +148,7 @@ const CSS = `
   flex-direction: column;
   justify-content: flex-end;
   min-height: 100vh;
+  background: #0B2A3D;
   padding: 0 clamp(28px, 4vw, 56px) clamp(40px, 6vh, 72px);
 }
 .pv-login-hero-photo {

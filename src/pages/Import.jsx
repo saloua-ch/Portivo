@@ -149,7 +149,7 @@ const css = `
 .portivo-import * { box-sizing: border-box; margin: 0; padding: 0; }
 .portivo-import { font-family: 'IBM Plex Sans', system-ui, sans-serif; background: #f5f2eb; }
 
-.pi-hero { position: relative; height: 560px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.pi-hero { position: relative; height: 560px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; background: #0B2A3D; }
 .pi-hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; }
 .pi-hero-gradient { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%); }
 .pi-hero-tint { position: absolute; inset: 0; background: rgba(11,42,61,.1); }
@@ -281,7 +281,7 @@ function Hero() {
   const { t } = useLanguage();
   return (
     <div className="pi-hero">
-      <img className="pi-hero-photo" src="https://images.unsplash.com/photo-1720931623686-588ef1014e2a?q=80&w=1032&auto=format&fit=crop" alt="Container terminal" />
+      <img loading="eager" fetchPriority="high" className="pi-hero-photo" src="/images/terminal.avif" alt="Container terminal" />
       <div className="pi-hero-gradient" /><div className="pi-hero-tint" />
       <span className="pi-hero-credit">{t("import.heroPhotoCredit")}</span>
       <div className="pi-hero-content">

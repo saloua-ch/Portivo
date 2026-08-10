@@ -167,8 +167,8 @@ export default function Archives() {
 
       {/* ── Hero ── */}
       <div style={HERO}>
-        <img
-          src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1200&auto=format&fit=crop"
+        <img loading="eager" fetchPriority="high"
+          src="/images/archives.avif"
           alt="Aerial view of a port terminal at dusk"
           style={HERO_PHOTO}
         />
@@ -362,7 +362,7 @@ export default function Archives() {
 /* ── Inline styles ── */
 const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
 
-const HERO = { position: "relative", height: 480, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
+const HERO = { position: "relative", height: 480, overflow: "hidden", background: "#0B2A3D", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
 const HERO_PHOTO = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%" };
 const HERO_GRADIENT = { position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)" };
 const HERO_TINT = { position: "absolute", inset: 0, background: "rgba(11,42,61,.1)" };

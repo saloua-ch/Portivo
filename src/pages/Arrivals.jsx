@@ -370,9 +370,9 @@ function Hero({ weekCount, customsCount, overdueCount }) {
     { val: pad(overdueCount), label: t("arrivals.kpiPastEta"),         accent: overdueCount > 0 ? "#D6492F" : "#2F7E6C" },
   ];
   return (
-    <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      <img
-        src="https://images.unsplash.com/photo-1595587637401-83ff822bd63e?q=80&w=901&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&auto=format&fit=crop"
+    <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "#0B2A3D" }}>
+      <img loading="eager" fetchPriority="high"
+        src="/images/arrivals.avif"
         alt="Container ships at port"
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%" }}
       />

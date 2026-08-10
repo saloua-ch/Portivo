@@ -202,8 +202,8 @@ export default function Containers() {
 
       {/* ── Hero ── */}
       <div style={HERO}>
-        <img
-          src="https://images.unsplash.com/photo-1583686298564-46fbffda0707?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1600&q=80&au[...]"
+        <img loading="eager" fetchPriority="high"
+          src="/images/containers.avif"
           alt="Stacked shipping containers in a terminal yard"
           style={HERO_PHOTO}
         />
@@ -432,7 +432,7 @@ export default function Containers() {
 
 /* ── Inline style objects ── */
 const ROOT = { fontFamily: "'IBM Plex Sans', sans-serif", background: "#ECE7DA", color: "#1C2B33", minHeight: "100vh" };
-const HERO = { position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
+const HERO = { position: "relative", height: 560, overflow: "hidden", background: "#0B2A3D", display: "flex", flexDirection: "column", justifyContent: "flex-end" };
 const HERO_PHOTO = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%" };
 const HERO_GRADIENT = { position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.05) 0%, rgba(8,32,48,.25) 55%, rgba(8,32,48,.92) 100%)" };
 const HERO_TINT = { position: "absolute", inset: 0, background: "rgba(11,42,61,.1)" };

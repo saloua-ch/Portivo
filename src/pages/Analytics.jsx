@@ -229,11 +229,11 @@ const EVENT_ICONS = { ship: <IShip />, alert: <IAlert />, check: <ICheck />, imp
 function Hero({ kpis }) {
   const { t } = useLanguage();
   return (
-    <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      <img
-        src="https://plus.unsplash.com/premium_photo-1754652424539-93fd34c23b1f?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D?w=1400&q=80&auto=format&fit=crop"
+    <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "#0B2A3D" }}>
+      <img loading="eager" fetchPriority="high"
+        src="/images/analytics..avif"
         alt="Aerial view of a container port terminal"
-        onError={e => { e.target.src = "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?w=1400&q=80&auto=format&fit=crop"; }}
+        onError={e => { e.target.src = "/images/analytics-fallback.avif"; }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%" }}
       />
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(8,32,48,.3) 0%, rgba(8,32,48,.6) 50%, rgba(8,32,48,.96) 100%)" }} />

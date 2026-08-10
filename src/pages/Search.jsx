@@ -238,9 +238,9 @@ function Hero({ onOpen, shipmentCount }) {
   const { t } = useLanguage();
   const [hover, setHover] = useState(false);
   return (
-    <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      <img
-        src="https://plus.unsplash.com/premium_photo-1673139386894-9ea986a89050?q=80&w=1600&auto=format&fit=crop"
+    <div style={{ position: "relative", height: 560, overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "#0B2A3D" }}>
+      <img loading="eager" fetchPriority="high"
+        src="/images/search.avif"
         alt="Shipping documents and records"
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%" }}
       />
