@@ -220,12 +220,12 @@ function GroupageCard({ g, index, total, errors, showErrors, onUpdate, onRemove,
         <div style={GFIELD}>
           <label style={GLABEL}><Ship size={11} /> {t("addEntry.bookingNumber")}</label>
           <input
-            type="text" inputMode="numeric"
+            type="text"
             value={g.bookingNumber}
-            onChange={e => onUpdate(g.id, "bookingNumber", e.target.value.replace(/\D/g, ""))}
+            onChange={e => onUpdate(g.id, "bookingNumber", e.target.value)}
             placeholder={t("addEntry.bookingNumberPlaceholder")}
             style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
-            className="pva-input"
+             className="pva-input"
           />
         </div>
         <div style={GFIELD}>
