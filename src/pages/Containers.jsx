@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import {
   AlertCircle, AlertTriangle, Ship, ClipboardList,
   Anchor, CheckCircle, Search as SearchIcon, ArrowUpDown, Trash2, X,
+  User, Package, Calendar, Boxes,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import * as storage from "../api/storage";
@@ -52,6 +53,9 @@ function etaLabel(str, t) {
   if (d === 0) return t('containers.today');
   if (d === 1) return t('containers.tomorrow');
   return fmtShort(str);
+}
+function parseNum(v) {
+  return parseFloat(String(v ?? "").replace(",", ".")) || 0;
 }
 
 /* ── Main component ── */
@@ -338,6 +342,15 @@ export default function Containers() {
               const ca  = c.needsAttention ? "#D6492F" : cfg.color;
               const ov  = diffDays(c.eta) < 0;
               const saving = savingId === c.id;
+
+              // Groupage roll-up — weight/volume are free-text in Add Entry
+              // (commas or dots, occasional stray text), so parse leniently
+              // and just sum whatever numbers are present.
+              const groupages = c.groupages || [];
+              const groupageCount = groupages.length;
+              const totalWeight = groupages.reduce((sum, g) => sum + parseNum(g.weight), 0);
+              const totalVolume = groupages.reduce((sum, g) => sum + parseNum(g.volume), 0);
+
               return (
                 <div
                   key={c.id}
@@ -382,6 +395,38 @@ export default function Containers() {
                       <span>{c.destination}</span>
                     </div>
                     <p style={CARRIER}>{c.carrier}</p>
+
+                    {/* Extra Add Entry fields — agent, size, nature of goods,
+                        embarquement/magasinage dates — shown only when present
+                        so cards without a field don't leave a gap. */}
+                    <div style={META_ROW}>
+                      {c.agent && (
+                        <span style={META_ITEM}><User size={11} aria-hidden="true" /> {c.agent}</span>
+                      )}
+                      {c.metadata?.size && (
+                        <span style={META_ITEM}><Package size={11} aria-hidden="true" /> {c.metadata.size}' container</span>
+                      )}
+                      {c.natureMarchandise && c.natureMarchandise !== "—" && (
+                        <span style={META_ITEM}><ClipboardList size={11} aria-hidden="true" /> {c.natureMarchandise}</span>
+                      )}
+                      {c.embarquementDate && (
+                        <span style={META_ITEM}><Calendar size={11} aria-hidden="true" /> {t('containers.etdLabel') || 'ETD'} {fmtShort(c.embarquementDate)}</span>
+                      )}
+                      {c.magasinageDate && (
+                        <span style={META_ITEM}><Calendar size={11} aria-hidden="true" /> {t('containers.magasinageLabel') || 'Magasinage'} {fmtShort(c.magasinageDate)}</span>
+                      )}
+                    </div>
+
+                    {/* Groupage roll-up */}
+                    {groupageCount > 0 && (
+                      <div style={GROUPAGE_SUMMARY}>
+                        <Boxes size={12} aria-hidden="true" />
+                        {groupageCount} {groupageCount !== 1 ? (t('containers.groupagesPlural') || 'groupages') : (t('containers.groupageSingular') || 'groupage')}
+                        {totalWeight > 0 && ` · ${totalWeight.toLocaleString()} kg`}
+                        {totalVolume > 0 && ` · ${totalVolume.toLocaleString()} m³`}
+                      </div>
+                    )}
+
                     {c.needsAttention && (
                       <div style={ALERT_ROW}>
                         <AlertTriangle size={12} aria-hidden="true" />
@@ -465,6 +510,9 @@ const CARD_BODY = { padding: "11px 15px" };
 const ROUTE = { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: "0.95rem", color: "#0B2A3D", display: "flex", alignItems: "baseline", gap: 7, marginBottom: 3 };
 const RARR = { color: "#6E7F87", fontWeight: 400, fontSize: "0.82rem" };
 const CARRIER = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.62rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "#6E7F87", margin: 0 };
+const META_ROW = { display: "flex", flexWrap: "wrap", gap: "5px 12px", marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(11,42,61,0.08)" };
+const META_ITEM = { display: "flex", alignItems: "center", gap: 4, fontSize: "0.68rem", color: "#6E7F87", whiteSpace: "nowrap" };
+const GROUPAGE_SUMMARY = { display: "flex", alignItems: "center", gap: 6, fontSize: "0.66rem", color: "#185FA5", marginTop: 7, paddingTop: 7, borderTop: "1px solid rgba(11,42,61,0.08)", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.02em" };
 const ALERT_ROW = { display: "flex", alignItems: "center", gap: 4, fontSize: "0.72rem", color: "#D6492F", borderTop: "1px solid rgba(214,73,47,0.14)", padding: "7px 0 0", marginTop: 7 };
 const CARD_FOOT = { marginTop: "auto", padding: "9px 15px", borderTop: "1px solid rgba(11,42,61,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" };
 const TAG = { fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.58rem", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 2, fontWeight: 600, border: "none", cursor: "pointer" };
