@@ -37,8 +37,13 @@ if (typeof document !== "undefined" && !document.getElementById("pva-gf")) {
   document.head.appendChild(l);
 }
 
-const AGENTS = ["Salwa Ben Ali","Karim Trabelsi","Nadia Mansour","Walid Cherif","Amel Jendoubi"];
-const SHIPPERS = ["Genmar Shipping","Med Freight Lines","Atlas Cargo Services"];
+const AGENTS = [
+  "GLOBELINK UNIMAR",
+  "Shenzhen Shinekoo Supply Chain Co.,Ltd",
+  "CONSOLCLUB INTERNATIONAL LOGISTICS CO., LTD",
+  "DEXPELL LOGISTICS",
+  "ICE TRANSPORT POLAND",
+];
 const ORIGIN_PORTS = ["Shanghai","Ningbo","Shenzhen","Qingdao","Guangzhou","Hong Kong","Singapore","Busan","Rotterdam","Antwerp","Hamburg","Genoa","Valencia","Barcelona","Marseille","Piraeus","Istanbul","Alexandria","Casablanca","Algiers","Ambarli","Alexandrie"];
 const ARRIVAL_PORTS = ["Tunis-Goulette","Rades","Sfax","Bizerte","Sousse","Gabes","Zarzis","Tunis-Carthage"];
 const CARRIERS = ["MSC","Maersk","CMA CGM","Hapag-Lloyd","COSCO","Evergreen","ONE (Ocean Network Express)","Yang Ming","HMM","ZIM","Wan Hai Lines","PIL (Pacific International Lines)","AKKON","MEDKON","MESSINA"];
@@ -54,7 +59,7 @@ const CAPACITY_M3 = { "20": 33, "40": 67 };
 let groupageIdCounter = 0;
 function newGroupage() {
   groupageIdCounter += 1;
-  return { id: groupageIdCounter, shipper: "", bookingDate: "", clientRef: "", supplier: "", client: "", pickupDate: "", weight: "", packages: "", achat: "", vente: "", volume: "" };
+  return { id: groupageIdCounter, bookingNumber: "", bookingDate: "", clientRef: "", supplier: "", client: "", pickupDate: "", weight: "", packages: "", achat: "", achatCurrency: "", vente: "",venteCurrency: "", volume: "" };
 }
 function cloneGroupage(source) {
   groupageIdCounter += 1;
@@ -97,7 +102,7 @@ function getFormSnapshot(s) {
 }
 function isSnapshotEmpty(snap) {
   const hasTopLevel = snap.containerNumber || snap.containerSize || snap.agent || snap.origin || snap.arrivalPort || snap.carrier || snap.natureMarchandise || snap.embarquementDate || snap.eta || snap.magasinageDate;
-  const hasGroupage = snap.groupages?.some(g => g.supplier || g.client || g.shipper || g.clientRef);
+  const hasGroupage = snap.groupages?.some(g => g.supplier || g.client || g.bookingNumber || g.clientRef);
   return !hasTopLevel && !hasGroupage;
 }
 
@@ -106,7 +111,7 @@ function AutocompleteInput({ value, onChange, options, placeholder, icon: Icon, 
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const query = value.trim().toLowerCase();
-  const matches = query ? options.filter(o => o.toLowerCase().includes(query)).slice(0, 6) : options.slice(0, 6);
+  const matches = query ? options.filter(o => o.toLowerCase().includes(query)) : options;
   const choose = (val) => { onChange(val); setOpen(false); };
   const handleKeyDown = (e) => {
     if (!open) return;
@@ -213,8 +218,15 @@ function GroupageCard({ g, index, total, errors, showErrors, onUpdate, onRemove,
       {/* Row 2 */}
       <div style={GROUPAGE_SUBROW} className="pva-groupage-fields">
         <div style={GFIELD}>
-          <label style={GLABEL}><Ship size={11} /> {t("addEntry.shipperName")}</label>
-          <input type="text" list="pva-shippers" value={g.shipper} onChange={e => onUpdate(g.id, "shipper", e.target.value)} placeholder={t("addEntry.shipperPlaceholder")} style={GROUPAGE_INPUT} className="pva-input" />
+          <label style={GLABEL}><Ship size={11} /> {t("addEntry.bookingNumber")}</label>
+          <input
+            type="text" inputMode="numeric"
+            value={g.bookingNumber}
+            onChange={e => onUpdate(g.id, "bookingNumber", e.target.value.replace(/\D/g, ""))}
+            placeholder={t("addEntry.bookingNumberPlaceholder")}
+            style={{ ...GROUPAGE_INPUT, fontFamily: MONO }}
+            className="pva-input"
+          />
         </div>
         <div style={GFIELD}>
           <label style={GLABEL}><Calendar size={11} /> {t("addEntry.bookingDate")}</label>
@@ -240,16 +252,34 @@ function GroupageCard({ g, index, total, errors, showErrors, onUpdate, onRemove,
         <div style={GFIELD}>
           <label style={GLABEL}>{t("addEntry.achat")} <span style={OPTIONAL_TAG_SM}>{t("addEntry.optional")}</span></label>
           <div style={SELECT_WRAP}>
-            <input type="text" value={g.achat} onChange={e => onUpdate(g.id, "achat", e.target.value)} onBlur={() => onFieldBlur(g.id, "achat")} placeholder="—" style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 42, ...(showErrors && gErr.achat ? INPUT_ERROR : {}) }} className="pva-input" />
-            <span style={CURRENCY_SUFFIX}>TND</span>
+            <input type="text" value={g.achat} onChange={e => onUpdate(g.id, "achat", e.target.value)} onBlur={() => onFieldBlur(g.id, "achat")} placeholder="—" style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 54, ...(showErrors && gErr.achat ? INPUT_ERROR : {}) }} className="pva-input" />
+            <select
+              value={g.achatCurrency || "TND"}
+              onChange={e => onUpdate(g.id, "achatCurrency", e.target.value)}
+              style={CURRENCY_SELECT}
+              aria-label={t("addEntry.achatCurrencyLabel")}
+            >
+              <option value="TND">TND</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
           </div>
           {showErrors && gErr.achat && <span style={GROUPAGE_ERROR_TEXT}>{gErr.achat}</span>}
         </div>
         <div style={GFIELD}>
           <label style={GLABEL}>{t("addEntry.vente")} <span style={OPTIONAL_TAG_SM}>{t("addEntry.optional")}</span></label>
           <div style={SELECT_WRAP}>
-            <input type="text" value={g.vente} onChange={e => onUpdate(g.id, "vente", e.target.value)} onBlur={() => onFieldBlur(g.id, "vente")} placeholder="—" style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 42, ...(showErrors && gErr.vente ? INPUT_ERROR : {}) }} className="pva-input" />
-            <span style={CURRENCY_SUFFIX}>TND</span>
+            <input type="text" value={g.vente} onChange={e => onUpdate(g.id, "vente", e.target.value)} onBlur={() => onFieldBlur(g.id, "vente")} placeholder="—" style={{ ...GROUPAGE_INPUT, fontFamily: MONO, paddingRight: 54, ...(showErrors && gErr.vente ? INPUT_ERROR : {}) }} className="pva-input" />
+            <select
+              value={g.venteCurrency || "TND"}
+              onChange={e => onUpdate(g.id, "venteCurrency", e.target.value)}
+              style={CURRENCY_SELECT}
+              aria-label={t("addEntry.venteCurrencyLabel")}
+            >
+              <option value="TND">TND</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
           </div>
           {showErrors && gErr.vente && <span style={GROUPAGE_ERROR_TEXT}>{gErr.vente}</span>}
         </div>
@@ -398,9 +428,8 @@ function ReviewStep({ data, onEdit, t }) {
                   <RecapRow label={t('addEntry.recapPoids')} value={g.weight ? `${g.weight} kg` : ""} />
                   <RecapRow label={t('addEntry.recapVolume')} value={g.volume ? `${g.volume} m³` : ""} />
                   <RecapRow label={t('addEntry.recapColis')} value={g.packages} />
-                  <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} TND` : ""} />
-                  <RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} TND` : ""} />
-                </div>
+                  <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} ${g.achatCurrency || 'TND'}` : ""} />
+<RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} ${g.venteCurrency || 'TND'}` : ""} />                </div>
               </div>
             ))}
           </div>
@@ -709,9 +738,8 @@ export default function AddEntry() {
                       <RecapRow label={t('addEntry.recapPoids')} value={g.weight ? `${g.weight} kg` : ""} />
                       <RecapRow label={t('addEntry.recapVolume')} value={g.volume ? `${g.volume} m³` : ""} />
                       <RecapRow label={t('addEntry.recapColis')} value={g.packages} />
-                      <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} TND` : ""} />
-                      <RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} TND` : ""} />
-                    </div>
+                      <RecapRow label={t('addEntry.recapAchat')} value={g.achat ? `${g.achat} ${g.achatCurrency || 'TND'}` : ""} />
+                      <RecapRow label={t('addEntry.recapVente')} value={g.vente ? `${g.vente} ${g.venteCurrency || 'TND'}` : ""} />                    </div>
                   </div>
                 ))}
               </div>
@@ -881,7 +909,6 @@ export default function AddEntry() {
                   ))}
                 </div>
 
-                <datalist id="pva-shippers">{SHIPPERS.map(s => <option key={s} value={s} />)}</datalist>
 
                 <button type="button" onClick={addGroupage} className="pva-add-btn">
                   <Plus size={15} /> {t('addEntry.addGroupage')}
@@ -955,7 +982,7 @@ const SELECT_WRAP  = { position: "relative", display: "flex", alignItems: "cente
 const SELECT_ICON  = { position: "absolute", left: 14, color: "#6E7F87", pointerEvents: "none" };
 const SELECT       = { width: "100%", padding: "11px 14px 11px 38px", fontSize: "0.9rem", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none", appearance: "none", cursor: "pointer" };
 const AC_WRAP      = { position: "relative" };
-const AC_LIST      = { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, margin: 0, padding: 4, listStyle: "none", background: "#fff", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, boxShadow: "0 8px 24px rgba(11,42,61,0.12)", maxHeight: 220, overflowY: "auto" };
+const AC_LIST      = { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 20, margin: 0, padding: 4, listStyle: "none", background: "#fff", border: "1px solid rgba(11,42,61,0.18)", borderRadius: 8, boxShadow: "0 8px 24px rgba(11,42,61,0.12)", maxHeight: 320, overflowY: "auto" };
 const AC_ITEM      = { padding: "9px 12px", fontSize: "0.85rem", color: "#1C2B33", borderRadius: 6, cursor: "pointer", fontFamily: "'IBM Plex Sans', sans-serif" };
 const AC_ITEM_ACTIVE = { background: "rgba(24,95,165,0.08)", color: "#0B2A3D" };
 const GROUPAGE_ERROR_BANNER = { display: "flex", alignItems: "center", gap: 8, margin: "16px 22px 0", padding: "10px 14px", background: "#FAEEDA", border: "1px solid rgba(201,145,43,0.35)", borderRadius: 8, color: "#854F0B", fontSize: "0.78rem" };
@@ -970,6 +997,7 @@ const GLABEL              = { fontFamily: MONO, fontSize: "0.6rem", letterSpacin
 const GROUPAGE_INPUT      = { width: "100%", padding: "9px 11px", fontSize: "0.82rem", border: "1px solid rgba(11,42,61,0.16)", borderRadius: 6, background: "#fff", color: "#1C2B33", fontFamily: "'IBM Plex Sans', sans-serif", outline: "none" };
 const GROUPAGE_ERROR_TEXT = { fontSize: "0.66rem", color: "#D6492F", fontFamily: MONO };
 const CURRENCY_SUFFIX     = { position: "absolute", right: 11, color: "#A8A39A", fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.04em", pointerEvents: "none" };
+const CURRENCY_SELECT      = { position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: "#6E7F87", fontFamily: MONO, fontSize: "0.66rem", letterSpacing: "0.04em", cursor: "pointer", outline: "none", padding: "2px 2px" };
 const SUBMIT_ROW          = { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 8 };
 const KEYBOARD_HINT       = { fontFamily: MONO, fontSize: "0.68rem", color: "#A8A39A", textAlign: "right", marginTop: 8 };
 const SUCCESS_WRAP        = { maxWidth: 620, margin: "0 auto", padding: "80px 24px 100px", textAlign: "center" };
