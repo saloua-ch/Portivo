@@ -76,7 +76,7 @@ function isValidTNDAmount(value) {
 
 function isValidVolume(value) {
   if (!value.trim()) return true;
-  return /^\d+([.,]\d{1,2})?$/.test(value.trim());
+  return /^\d+([.,]\d{1,3})?$/.test(value.trim());
 }
 
 function formatDate(d) {
