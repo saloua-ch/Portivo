@@ -18,6 +18,10 @@ import {
   Calendar,
   Layers,
   User,
+  Ship,
+  Anchor,
+  Navigation,
+  PackageCheck,
 } from "lucide-react";
 
 /* ── Google Fonts Loader ── */
@@ -32,10 +36,27 @@ if (typeof document !== "undefined" && !document.getElementById("pvd-gf")) {
 
 const MONO = "'IBM Plex Mono', monospace";
 
+/* ── Timeline: 4 physical container steps ──
+   1. departed    — Départ du port d'origine
+   2. in_transit  — En transit (no date field)
+   3. arrived     — Arrivée au port de destination
+   4. unloaded    — Date de dépotage
+   This timeline tracks the CONTAINER only. It is intentionally decoupled
+   from groupage delivery status (see handleDeliveryChange) — one groupage
+   being delivered does not affect other groupages, and does not imply the
+   container itself has arrived or been unloaded. */
 const STEP_CODE_KEYS = {
   departed: "containerDetail.defaultStepDeparted",
   in_transit: "containerDetail.defaultStepInTransit",
   arrived: "containerDetail.defaultStepArrived",
+  unloaded: "containerDetail.defaultStepUnloaded", // Date de dépotage
+};
+
+const STEP_ICONS = {
+  departed: Ship,
+  in_transit: Navigation,
+  arrived: Anchor,
+  unloaded: PackageCheck,
 };
 
 function getStatusConfig(t) {
@@ -86,13 +107,51 @@ function formatDateShort(dateStr) {
 
 function toInputDate(dateStr) {
   if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
 }
 
-function stepLabel(step, t) {
-  const key = STEP_CODE_KEYS[step];
-  return key ? t(key) : step;
+function normalizeTimeline(existingTimeline = []) {
+  const cleaned = Array.isArray(existingTimeline) ? existingTimeline : [];
+  const requiredSteps = ["departed", "in_transit", "arrived", "unloaded"];
+
+  return requiredSteps.map((stepKey, index) => {
+    const existing = cleaned.find((item) => item.step === stepKey);
+    if (existing) return existing;
+
+    return {
+      step: stepKey,
+      date: null,
+      done: index === 0,
+      current: index === 1,
+    };
+  });
+}
+
+function stepLabel(stepKey, t) {
+  const translationKey = STEP_CODE_KEYS[stepKey];
+  if (translationKey && typeof t === "function") {
+    const translated = t(translationKey);
+    if (translated && translated !== translationKey) return translated;
+  }
+
+  switch (stepKey) {
+    case "departed":
+      return "Départ du port d'origine";
+    case "in_transit":
+      return "En transit";
+    case "arrived":
+      return "Arrivée au port de destination";
+    case "unloaded":
+      return "Date de dépotage";
+    default:
+      return stepKey;
+  }
 }
 
 function getDefaultTimeline(t) {
@@ -100,12 +159,178 @@ function getDefaultTimeline(t) {
     { step: "departed", date: null, done: true },
     { step: "in_transit", date: null, current: true },
     { step: "arrived", date: null, done: false },
+    { step: "unloaded", date: null, done: false }, // Date de dépotage
   ];
 }
 
 // Updated grid track template for wide, breathing columns
 const TABLE_GRID_COLUMNS =
   "170px 190px 150px 160px 130px 135px 135px 105px 105px 105px 120px 120px 210px 100px";
+
+/* ── Journey illustration ──
+   A small animated scene: origin port (crane) → open sea (ship carrying
+   the groupages) → destination port → warehouse ("magasin"). The ship's
+   position and the warehouse's highlight animate based on which step is
+   current, so the drawing tells the same story as the timeline below it. */
+function ContainerJourneyIllustration({ timeline }) {
+  const currentIdx = timeline.findIndex((s) => s.current);
+  const lastDoneIdx = timeline.reduce(
+    (acc, s, i) => (s.done ? i : acc),
+    -1
+  );
+  const activeIdx = currentIdx !== -1 ? currentIdx : Math.max(lastDoneIdx, 0);
+
+  const SHIP_X = [30, 300, 560, 560];
+  const shipX = SHIP_X[activeIdx] ?? SHIP_X[0];
+  const craneActive = activeIdx === 0;
+  const atSea = activeIdx === 1;
+  const unloading = activeIdx === 3;
+
+  return (
+    <svg
+      viewBox="0 0 800 200"
+      style={{ width: "100%", height: "auto", display: "block" }}
+      role="img"
+      aria-label="Container journey illustration"
+    >
+      <rect x="0" y="0" width="800" height="200" fill="#F3EFE7" />
+
+      {/* sea band */}
+      <rect x="0" y="132" width="800" height="52" fill="#D3E7E0" />
+      <g style={{ opacity: 0.55 }}>
+        <path
+          className="pvd-wave"
+          d="M-100 142 Q -50 137 0 142 T 100 142 T 200 142 T 300 142 T 400 142 T 500 142 T 600 142 T 700 142 T 800 142 T 900 142"
+          stroke="#9AC4B7"
+          strokeWidth="2"
+          fill="none"
+        />
+        <path
+          className="pvd-wave"
+          style={{ animationDelay: "-2.4s", animationDuration: "8s" }}
+          d="M-100 154 Q -50 149 0 154 T 100 154 T 200 154 T 300 154 T 400 154 T 500 154 T 600 154 T 700 154 T 800 154 T 900 154"
+          stroke="#B5D8CE"
+          strokeWidth="2"
+          fill="none"
+        />
+      </g>
+
+      {/* origin port */}
+      <g>
+        <rect x="0" y="122" width="86" height="14" fill="#0B2A3D" />
+        <rect x="18" y="34" width="5" height="88" fill="#304B58" />
+        <rect x="18" y="34" width="52" height="5" fill="#304B58" />
+        <rect
+          x="55"
+          y="39"
+          width="3"
+          height={craneActive ? "34" : "16"}
+          fill="#C9912B"
+          style={{ transition: "height .6s ease" }}
+        />
+        {craneActive && (
+          <rect
+            x="48"
+            y="72"
+            width="17"
+            height="13"
+            rx="2"
+            fill="#D6492F"
+            style={{ transition: "opacity .4s ease" }}
+          />
+        )}
+        <text
+          x="6"
+          y="196"
+          fontFamily="'IBM Plex Mono', monospace"
+          fontSize="9"
+          fill="#8A9AA3"
+          letterSpacing="0.08em"
+        >
+          ORIGINE
+        </text>
+      </g>
+
+      {/* destination port + warehouse */}
+      <g>
+        <rect x="700" y="122" width="100" height="14" fill="#0B2A3D" />
+        <polygon
+          points="712,66 752,42 792,66"
+          fill={unloading ? "#245F52" : "#B7C2C6"}
+          style={{ transition: "fill .5s ease" }}
+        />
+        <rect
+          x="717"
+          y="66"
+          width="70"
+          height="56"
+          fill={unloading ? "#2F7E6C" : "#C7CDC9"}
+          style={{ transition: "fill .5s ease" }}
+        />
+        <rect x="742" y="94" width="20" height="28" fill="#F3EFE7" />
+        {unloading && (
+          <rect x="746" y="108" width="4" height="14" fill="#854F0B" />
+        )}
+        <text
+          x="716"
+          y="196"
+          fontFamily="'IBM Plex Mono', monospace"
+          fontSize="9"
+          fill="#8A9AA3"
+          letterSpacing="0.08em"
+        >
+          MAGASIN
+        </text>
+      </g>
+
+      {/* ship, slides between the four stage positions */}
+      <g
+        style={{
+          transform: `translateX(${shipX}px)`,
+          transition: "transform .9s cubic-bezier(.4,0,.2,1)",
+        }}
+      >
+        <path d="M0 142 L112 142 L101 158 L11 158 Z" fill="#0B2A3D" />
+        <rect x="10" y="120" width="21" height="19" fill="#D6492F" />
+        <rect x="33" y="120" width="21" height="19" fill="#C9912B" />
+        <rect x="56" y="120" width="21" height="19" fill="#2F7E6C" />
+        <rect x="10" y="99" width="21" height="18" fill="#185FA5" />
+        <rect x="33" y="99" width="21" height="18" fill="#D6492F" />
+        {atSea && (
+          <>
+            <circle
+              className="pvd-ship-wake"
+              cx="-8"
+              cy="153"
+              r="3"
+              fill="#9AC4B7"
+            />
+            <circle
+              className="pvd-ship-wake"
+              cx="-18"
+              cy="150"
+              r="2"
+              fill="#9AC4B7"
+              style={{ animationDelay: "-0.6s" }}
+            />
+          </>
+        )}
+      </g>
+
+      {/* stage markers along the water */}
+      {SHIP_X.map((x, i) => (
+        <circle
+          key={i}
+          cx={x + 56}
+          cy={172}
+          r={i <= activeIdx ? 4 : 3}
+          fill={i <= activeIdx ? "#2F7E6C" : "rgba(11,42,61,.18)"}
+          style={{ transition: "fill .4s ease" }}
+        />
+      ))}
+    </svg>
+  );
+}
 
 export default function ContainerDetail() {
   const { id } = useParams();
@@ -120,50 +345,45 @@ export default function ContainerDetail() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      const data = await storage.getContainer(id);
-      setContainer(data);
-      setLoading(false);
-    }
-    load();
-    const unsubscribe = storage.onChange(() => load());
-    return unsubscribe;
-  }, [id]);
+    async function load(isInitial = false) {
+      if (isInitial) setLoading(true);
 
+      try {
+        const data = await storage.getContainer(id);
+        if (data) {
+          data.timeline = normalizeTimeline(data.timeline);
+          setContainer(data);
+        }
+      } catch (err) {
+        console.error("Failed to load container data:", err);
+      } finally {
+        if (isInitial) setLoading(false);
+      }
+    }
+
+    load(true);
+
+    const unsubscribe = storage.onChange(() => load(false));
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, [id, storage]);
+
+  // Toggling one groupage's delivery status only ever touches that groupage.
+  // It never cascades to other groupages, and never touches container.status
+  // or the container timeline — a groupage being delivered doesn't mean the
+  // container itself has arrived or been unloaded.
   async function handleDeliveryChange(index, delivered) {
     if (!container) return;
     const updatedGroupages = container.groupages.map((g, i) =>
       i === index ? { ...g, delivered } : g
     );
-    const allDelivered =
-      updatedGroupages.length > 0 && updatedGroupages.every((g) => g.delivered);
-    const patch = { groupages: updatedGroupages };
-    const baseTimeline = container.timeline?.length
-      ? container.timeline
-      : getDefaultTimeline(t);
-
-    if (allDelivered && container.status !== "delivered") {
-      patch.status = "delivered";
-      patch.timeline = baseTimeline.map((step) => ({
-        ...step,
-        done: true,
-        current: false,
-      }));
-    } else if (!allDelivered && container.status === "delivered") {
-      patch.status = "arriving_soon";
-      const lastIdx = baseTimeline.length - 1;
-      const revertIdx = Math.max(lastIdx - 1, 0);
-      patch.timeline = baseTimeline.map((step, i) => ({
-        ...step,
-        done: i < revertIdx,
-        current: i === revertIdx,
-      }));
-    }
 
     setSavingIdx(index);
     try {
-      await storage.updateContainer(container.id, patch);
+      await storage.updateContainer(container.id, {
+        groupages: updatedGroupages,
+      });
     } catch (err) {
       console.error("Failed to update delivery status", err);
       alert(t("containerDetail.errDeliverySave"));
@@ -185,6 +405,8 @@ export default function ContainerDetail() {
     }
   }
 
+  // Advancing the timeline only ever touches the timeline itself — it no
+  // longer marks groupages as delivered or changes container.status.
   function handleTimelineAdvance(index) {
     const base = container.timeline?.length
       ? container.timeline
@@ -195,20 +417,7 @@ export default function ContainerDetail() {
       current: i === index,
     }));
 
-    const patch = { timeline: updated };
-    const isLastStep = index === base.length - 1;
-
-    if (isLastStep) {
-      patch.groupages = container.groupages.map((g) => ({
-        ...g,
-        delivered: true,
-      }));
-      patch.status = "delivered";
-    } else if (container.status === "delivered") {
-      patch.status = "arriving_soon";
-    }
-
-    persistTimeline(patch);
+    persistTimeline({ timeline: updated });
   }
 
   function handleTimelineDateChange(index, value) {
@@ -368,24 +577,113 @@ export default function ContainerDetail() {
         .pvd-groupage-row:hover {
           background: #EFEBE2 !important;
         }
+        @keyframes pvd-wave-drift {
+          from { transform: translateX(0); }
+          to { transform: translateX(-100px); }
+        }
+        .pvd-wave {
+          animation: pvd-wave-drift 6s linear infinite;
+        }
+        @keyframes pvd-wake-fade {
+          0% { opacity: 0.7; transform: translateX(0); }
+          100% { opacity: 0; transform: translateX(-24px); }
+        }
+        .pvd-ship-wake {
+          animation: pvd-wake-fade 1.6s ease-out infinite;
+        }
+        .pvd-timeline-progress-track {
+          width: 100%;
+          height: 6px;
+          border-radius: 3px;
+          background: rgba(11,42,61,0.09);
+          overflow: hidden;
+          margin-bottom: 30px;
+        }
+        .pvd-timeline-progress-fill {
+          height: 100%;
+          border-radius: 3px;
+          background: linear-gradient(90deg, #2F7E6C, #3B9B85);
+          transition: width .5s ease;
+        }
         .pvd-timeline-node {
           position: relative;
           display: flex;
           align-items: flex-start;
           gap: 16px;
-          padding-bottom: 32px;
+          padding: 6px 10px 32px 6px;
+          margin-left: -6px;
+          border-radius: 10px;
           cursor: pointer;
+          transition: background .15s ease;
         }
-        .pvd-timeline-node:last-child { padding-bottom: 0; }
+        .pvd-timeline-node:hover {
+          background: rgba(11,42,61,0.035);
+        }
+        .pvd-timeline-node:last-child { padding-bottom: 6px; }
         .pvd-timeline-line {
           position: absolute;
-          left: 11px;
-          top: 24px;
+          left: 25px;
+          top: 46px;
           bottom: 0;
           width: 2px;
           background: rgba(11,42,61,0.15);
         }
+        .pvd-timeline-node.done .pvd-timeline-line {
+          background: #2F7E6C;
+        }
         .pvd-timeline-node:last-child .pvd-timeline-line { display: none; }
+        .pvd-timeline-icon-wrap {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: background .2s ease, color .2s ease, transform .2s ease, box-shadow .2s ease;
+        }
+        .pvd-timeline-node:hover .pvd-timeline-icon-wrap {
+          transform: scale(1.08);
+        }
+        .pvd-timeline-node.current .pvd-timeline-icon-wrap {
+          box-shadow: 0 0 0 4px rgba(201,145,43,0.18);
+        }
+        .pvd-timeline-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-family: ${MONO};
+          font-size: 0.6rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          flex-shrink: 0;
+        }
+        .pvd-timeline-date-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 9px;
+          margin-top: 8px;
+          border-radius: 7px;
+          background: rgba(255,255,255,0.7);
+          border: 1px solid rgba(11,42,61,0.14);
+          width: fit-content;
+        }
+        .pvd-timeline-date-pill input[type="date"] {
+          font-family: ${MONO};
+          font-size: 0.7rem;
+          border: none;
+          background: transparent;
+          color: #304B58;
+          padding: 0;
+          width: 108px;
+        }
+        .pvd-timeline-date-pill input[type="date"]:focus {
+          outline: none;
+        }
       `}</style>
 
       <div
@@ -1099,7 +1397,7 @@ export default function ContainerDetail() {
                                 {g.vente ? `${g.vente} €` : "—"}
                               </div>
 
-                              {/* Delivery Toggle Checkbox */}
+                              {/* Delivery Toggle Checkbox — per-groupage only */}
                               <div
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
@@ -1161,108 +1459,166 @@ export default function ContainerDetail() {
 
           {/* ── TIMELINE TAB ── */}
           {activeTab === "timeline" && (
-            <div style={{ maxWidth: 600 }}>
-              <p
+            <div style={{ maxWidth: 920, margin: "0 auto" }}>
+              <div
                 style={{
-                  fontFamily: MONO,
-                  fontSize: "0.68rem",
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "#6E7F87",
-                  margin: "0 0 24px",
+                  border: "1px solid rgba(11,42,61,0.12)",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  marginBottom: 34,
+                  background: "#F3EFE7",
                 }}
               >
-                {t("containerDetail.timelineTitle")}
-              </p>
+                <ContainerJourneyIllustration timeline={timeline} />
+              </div>
 
-              <div>
-                {timeline.map((stepObj, idx) => {
-                  const isDone = stepObj.done;
-                  const isCurrent = stepObj.current;
+              <div style={{ maxWidth: 560, margin: "0 auto" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 14,
+                    flexWrap: "wrap",
+                    gap: 8,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: "0.68rem",
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "#6E7F87",
+                      margin: 0,
+                    }}
+                  >
+                    {typeof t === "function"
+                      ? t("containerDetail.timelineTitle")
+                      : "CHRONOLOGIE DU CONTENEUR"}
+                  </p>
+                  <span
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: "0.65rem",
+                      fontWeight: 700,
+                      color: "#2F7E6C",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {timeline.filter((s) => s.done).length}/{timeline.length}
+                  </span>
+                </div>
 
-                  return (
-                    <div key={idx} className="pvd-timeline-node">
-                      <div className="pvd-timeline-line" />
+                <div className="pvd-timeline-progress-track">
+                  <div
+                    className="pvd-timeline-progress-fill"
+                    style={{
+                      width: `${
+                        (timeline.filter((s) => s.done).length /
+                          timeline.length) *
+                        100
+                      }%`,
+                    }}
+                  />
+                </div>
 
+                <div>
+                  {timeline.map((stepObj, idx) => {
+                    const isDone = stepObj.done;
+                    const isCurrent = stepObj.current;
+                    const showDateInput = stepObj.step !== "in_transit";
+                    const Icon = STEP_ICONS[stepObj.step] || Clock;
+
+                    const iconBg = isDone
+                      ? "#2F7E6C"
+                      : isCurrent
+                      ? "#C9912B"
+                      : "#D3CDC0";
+
+                    return (
                       <div
+                        key={stepObj.step || idx}
+                        className={`pvd-timeline-node${
+                          isDone ? " done" : ""
+                        }${isCurrent ? " current" : ""}`}
                         onClick={() => handleTimelineAdvance(idx)}
-                        style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: "50%",
-                          background: isDone
-                            ? "#2F7E6C"
-                            : isCurrent
-                            ? "#C9912B"
-                            : "#D3CDC0",
-                          color: "#fff",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          zIndex: 1,
-                          flexShrink: 0,
-                          transition: "background .15s ease",
-                        }}
                       >
-                        {isDone ? (
-                          <CheckCircle size={14} />
-                        ) : (
-                          <span
-                            style={{
-                              fontFamily: MONO,
-                              fontSize: "0.65rem",
-                              fontWeight: 700,
-                            }}
-                          >
-                            {idx + 1}
-                          </span>
-                        )}
-                      </div>
+                        <div className="pvd-timeline-line" />
 
-                      <div style={{ flex: 1 }}>
                         <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 12,
-                          }}
+                          className="pvd-timeline-icon-wrap"
+                          style={{ background: iconBg, color: "#fff" }}
                         >
-                          <span
-                            onClick={() => handleTimelineAdvance(idx)}
+                          {isDone ? (
+                            <CheckCircle size={18} />
+                          ) : (
+                            <Icon size={18} />
+                          )}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0, paddingTop: 8 }}>
+                          <div
                             style={{
-                              fontFamily: "'IBM Plex Sans', sans-serif",
-                              fontSize: "0.88rem",
-                              fontWeight: isCurrent || isDone ? 600 : 400,
-                              color:
-                                isDone || isCurrent ? "#0B2A3D" : "#6E7F87",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              flexWrap: "wrap",
                             }}
                           >
-                            {stepLabel(stepObj.step, t)}
-                          </span>
+                            <span
+                              style={{
+                                fontFamily: "'IBM Plex Sans', sans-serif",
+                                fontSize: "0.88rem",
+                                fontWeight: isCurrent || isDone ? 600 : 500,
+                                color:
+                                  isDone || isCurrent ? "#0B2A3D" : "#6E7F87",
+                              }}
+                            >
+                              {stepLabel(stepObj.step, t)}
+                            </span>
 
-                          <input
-                            type="date"
-                            value={toInputDate(stepObj.date)}
-                            disabled={savingTimeline}
-                            onChange={(e) =>
-                              handleTimelineDateChange(idx, e.target.value)
-                            }
-                            style={{
-                              fontFamily: MONO,
-                              fontSize: "0.72rem",
-                              padding: "2px 6px",
-                              border: "1px solid rgba(11,42,61,0.18)",
-                              borderRadius: 4,
-                              background: "#F7F4EE",
-                              color: "#304B58",
-                            }}
-                          />
+                            {isCurrent && (
+                              <span
+                                className="pvd-timeline-badge"
+                                style={{
+                                  background: "rgba(201,145,43,0.16)",
+                                  color: "#854F0B",
+                                }}
+                              >
+                                <Clock size={10} />
+                                {t("containerDetail.current") || "En cours"}
+                              </span>
+                            )}
+                          </div>
+
+                          {showDateInput && (
+                            <div
+                              className="pvd-timeline-date-pill"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Calendar
+                                size={12}
+                                style={{ color: "#6E7F87" }}
+                              />
+                              <input
+                                type="date"
+                                value={toInputDate(stepObj.date)}
+                                disabled={savingTimeline}
+                                onChange={(e) =>
+                                  handleTimelineDateChange(
+                                    idx,
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

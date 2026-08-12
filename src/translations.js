@@ -524,9 +524,15 @@ export const translations = {
       dateTBD: "Date TBD",
       errDeliverySave: "Couldn't save the delivery status — please try again.",
       errTimelineSave: "Couldn't save the timeline — please try again.",
-      defaultStepDeparted: "Departed origin port",
+
       defaultStepInTransit: "In transit",
-      defaultStepArrived: "Arrived destination",
+  
+      // en → containerDetail
+defaultStepDeparted: "Departed origin port",
+defaultStepArrived: "Arrived at the destination port",
+defaultStepUnloaded: "Unloading date",       // ← ajouter
+defaultStepDelivered: "Delivered",  
+          // ← ajouter
     },
     home: {
       heroEyebrow: "Tunis–Goulette terminal · Port operations",
@@ -1147,7 +1153,8 @@ export const translations = {
         "Impossible d'enregistrer la chronologie — veuillez réessayer.",
       defaultStepDeparted: "Départ du port d'origine",
       defaultStepInTransit: "En transit",
-      defaultStepArrived: "Arrivée à destination",
+      defaultStepArrived: "Arrivée au port de destination",
+      defaultStepUnloaded: "Date de dépotage",
     },
     home: {
       heroEyebrow: "Terminal Tunis–Goulette · Opérations portuaires",
