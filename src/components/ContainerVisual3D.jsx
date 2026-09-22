@@ -129,7 +129,7 @@ function ContainerShell({ length, width, height }) {
 function Scene({ sizeFeet, groupages, compact }) {
   const dims = DIMS[sizeFeet] || DIMS["20"];
   const capacity = CAPACITY_M3[sizeFeet] || CAPACITY_M3["20"];
-  const named = groupages.filter(g => g.supplier.trim() && g.client.trim());
+  const named = groupages.filter(g => (g.supplier || "").trim() && (g.client || "").trim());
 
   const sized = named
     .map((g, i) => ({ id: g.id, volume: parseVolume(g.volume), color: BOX_COLORS[i % BOX_COLORS.length] }))
@@ -199,7 +199,7 @@ export default function ContainerVisual3D({ sizeFeet, groupages, t, compact }) {
 
   const dims = DIMS[sizeFeet] || DIMS["20"];
   const capacity = CAPACITY_M3[sizeFeet] || CAPACITY_M3["20"];
-  const named = groupages.filter(g => g.supplier.trim() && g.client.trim());
+  const named = groupages.filter(g => (g.supplier || "").trim() && (g.client || "").trim());
   const totalVolume = named.reduce((a, g) => a + parseVolume(g.volume), 0);
   const pct = capacity > 0 ? (totalVolume / capacity) * 100 : 0;
   const overCapacity = totalVolume > capacity;

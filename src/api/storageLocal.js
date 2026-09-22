@@ -1,4 +1,4 @@
-// localStorage backend — used when Supabase env vars are not configured.
+// localStorage backend — used when the backend API is not configured.
 
 import { containers as seedContainers } from "../data/mockData";
 
@@ -147,10 +147,10 @@ export async function deleteContainer(id) {
 // ─── Groupage documents (local dev fallback) ───────────────────────────────────
 // No real backend to upload to here, so this keeps the original
 // inline-base64 behavior — fine for local-only development. The
-// Supabase backend (storageSupabase.js) is what actually gets a proper
-// Storage bucket; see the interface note there.
+// standalone backend (storageBackend.js) is what actually saves files to
+// disk; see the interface note there.
 
-const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024; // 15 MB, same cap as the Supabase backend
+const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024; // 15 MB, same cap as the standalone backend
 
 export async function uploadDocument(containerId, groupageIndex, file) {
   if (file.size > MAX_DOCUMENT_BYTES) {
