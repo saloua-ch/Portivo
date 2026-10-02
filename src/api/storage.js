@@ -1,16 +1,17 @@
-// Unified storage API — picks Supabase when configured, otherwise localStorage.
-  // Pages import from here only; no frontend changes required.
+// Unified storage API — picks the standalone backend when configured,
+  // otherwise localStorage. Pages import from here only; no frontend changes
+  // required.
 
-  import { isSupabaseConfigured } from "./supabaseClient";
+  import { isBackendConfigured } from "./backendClient";
   import * as local from "./storageLocal";
-  import * as remote from "./storageSupabase";
+  import * as remote from "./storageBackend";
 
-  const backend = isSupabaseConfigured() ? remote : local;
+  const backend = isBackendConfigured() ? remote : local;
 
-  if (!isSupabaseConfigured() && import.meta.env.DEV) {
+  if (!isBackendConfigured() && import.meta.env.DEV) {
     console.info(
-      "[Portivo] Supabase not configured — using localStorage. " +
-      "Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env to enable the cloud backend."
+      "[Portivo] Backend API not configured — using localStorage. " +
+      "Add VITE_API_URL to .env (and run the backend/ app) to enable the real backend."
     );
   }
 

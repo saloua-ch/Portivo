@@ -3,8 +3,8 @@
  * Place at: src/pages/Analytics.jsx
  *
  * All numbers here are computed from real data (containers + import
- * history via api/storage.js — Supabase when configured, localStorage
- * otherwise). See src/lib/analyticsData.js for the actual math; this
+ * history via api/storage.js — the standalone backend when configured,
+ * localStorage otherwise). See src/lib/analyticsData.js for the actual math; this
  * file is just fetching, translating, and rendering it.
  *
  * Run once: npm install chart.js

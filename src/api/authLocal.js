@@ -1,8 +1,8 @@
-// Local auth fallback — used when Supabase env vars are not configured.
+// Local auth fallback — used when the backend API is not configured.
 // Mirrors storageLocal.js: same idea, just for the session instead of data.
 // NOT real security — the credential check happens in the browser, so
 // anyone reading the shipped code can see it. Fine for local dev; once
-// Supabase is configured (see authSupabase.js) real server-side auth
+// VITE_API_URL is configured (see authBackend.js) real server-side auth
 // takes over automatically via the api/auth.js facade.
 
 const KEY = "pv:auth:v1";

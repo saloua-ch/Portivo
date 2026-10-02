@@ -14,6 +14,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 # Editor directories and files
 .vscode/*
